@@ -9,11 +9,40 @@ library(knitr)
 library(dplyr)
 library(readxl)
 library(ggplot2)
-library(ggcorrplot)
+library(corrplot)
+library(Hmisc)
 ```
 
 ```{r read data}
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
 header <- scan("card.csv",sep=",",nlines=2,what=character())
 head(data)
+
+glimpse(data)
 ```
+
+```{r data processing}
+glimpse(data)
+
+str(data)
+
+table(data$V25)
+
+ggplot(data$V25) + geom_bar()
+```
+``` {r correlation matrix}
+#Correlation matrix
+data_onlycat <- subset(data, select = c(c(V3,V4,V5,V7,V8,V9,V10,V11,V12)))
+corrplot(cor(data_onlycat))
+```
+```{r encoding values}
+#Replacing values
+data$V7[data$V7 >2 ]<- 2
+data$V8[data$V8 >2 ]<- 2
+data$V9[data$V9 >2 ]<- 2
+data$V10[data$V10 >2 ]<- 2
+data$V11[data$V11 >2 ]<- 2
+data$V12[data$V12 >2 ]<- 2
+
+```
+
