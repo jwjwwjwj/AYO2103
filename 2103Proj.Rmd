@@ -1,0 +1,19 @@
+---
+title: "2103 Project"
+output: pdf_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup}
+library(knitr)
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(ggcorrplot)
+```
+
+```{r read data}
+data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
+header <- scan("card.csv",sep=",",nlines=2,what=character())
+head(data)
+```
