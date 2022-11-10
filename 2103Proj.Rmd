@@ -10,10 +10,26 @@ library(dplyr)
 library(readxl)
 library(ggplot2)
 library(ggcorrplot)
+library(linprog)
 ```
 
 ```{r read data}
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
 header <- scan("card.csv",sep=",",nlines=2,what=character())
-head(data)
+set.seed(1234)
+n = length(data$V1)
+index <- 1:nrow(data)
+testindex <- sample(index, trunc(n)/4)
+test.data <- data[testindex,]
+train.data <- data[-testindex,]
+```
+
+```{r logistic regression}
+log_model <- glm(V25 ~ V1 +V2+V3+V4+V5+V6+V7+V8+V9+V10+V11+V12+V13+V14+V15+V16+V17+V18+V19+V20+V21+V22+V23+V24, data = train.data, family = "binomial")
+summary(log_model)
+
+predict <- predict(log_model, test.data, type = "response")
+predict <- ifelse(predict >0.5, 1, 0)
+table(test.data$V25, predict)
+mean(predict == test.data$V25)
 ```
