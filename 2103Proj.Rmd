@@ -17,18 +17,22 @@ library(Hmisc)
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
 header <- scan("card.csv",sep=",",nlines=2,what=character())
 head(data)
-
-glimpse(data)
 ```
 
-```{r data processing}
+
+```{r data structure}
+head(data)
 glimpse(data)
 
 str(data)
+```
 
-table(data$V25)
+```{r data processing}
 
-ggplot(data$V25) + geom_bar()
+#Checking for NA values
+any(is.na(data))
+
+summary(data)
 ```
 ``` {r correlation matrix}
 #Correlation matrix
@@ -44,5 +48,37 @@ data$V10[data$V10 >2 ]<- 2
 data$V11[data$V11 >2 ]<- 2
 data$V12[data$V12 >2 ]<- 2
 
+```
+```{r data visualisation}
+
+data$GENDER = ifelse(data$V3 == 1, "Male", "Female")
+
+#V4: Education (1 = graduate school; 2 = university; 3 = high school; 4 = others).
+data$EDUCATION <- ifelse(data$V4%in%c(0,4,5,6), 0, data$V4)
+data$EDUCATION <- factor(data$EDUCATION,
+                            labels = c("Others","Graduate_school", "University", "High_school"))
+data$default <- as.factor(data$V25)
+
+# Bar Graph for gender
+gender_plot<- ggplot(data, aes(GENDER))+
+  geom_bar(aes(fill=default), width = 0.5) + 
+  labs(title="Gender") +
+  stat_count(aes(label = ..count..), geom = "label")
+
+gender_plot
+
+# Bar graph for Education
+data %>%
+  count(EDUCATION, default) %>%
+    group_by(EDUCATION) %>%
+    mutate(n = n/sum(n) * 100) %>%
+    ggplot() + 
+    aes(factor(EDUCATION,
+               levels = c("Others", "High_school", "University", "Graduate_school")), n,
+        fill = default, label = paste0(round(n, 2), "%")) + 
+    geom_col() +
+    geom_text(position=position_stack(0.5))+
+    xlab("Education")+
+    ylab("%")
 ```
 
