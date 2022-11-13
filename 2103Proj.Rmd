@@ -11,19 +11,18 @@ library(readxl)
 library(ggplot2)
 library(corrplot)
 library(Hmisc)
+library(caret)
 ```
 
-```{r read data}
+```{r read data, echo=F}
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
 header <- scan("card.csv",sep=",",nlines=2,what=character())
-head(data)
 ```
 
 
 ```{r data structure}
 head(data)
 glimpse(data)
-
 str(data)
 ```
 
@@ -36,27 +35,35 @@ summary(data)
 ```
 ``` {r correlation matrix}
 #Correlation matrix
-data_onlycat <- subset(data, select = c(c(V3,V4,V5,V7,V8,V9,V10,V11,V12)))
+data_onlycat <- subset(data, select = c(c(V3,V4,V5,V7,V8,V9,V10,V11,V12,V25)))
 corrplot(cor(data_onlycat))
 ```
 ```{r encoding values}
+#Replacing Marriage 0 to 3 (1 = married; 2 = single; 3 = others)
+data$V5 = ifelse(data$V5 == 3, 0,data$V5)
+
+#Making a Gender column
+data$GENDER = ifelse(data$V3 == 1, "Male", "Female")
+
+# Firstly modify Education values, change values that are not 1,2,3 to 0.
+# Making an Education column (1 = graduate school; 2 = university; 3 = high school; 4 = others).
+data$V4 = ifelse(data$V4%in%c(0,4,5,6), 4, data$V4)
+
+data$EDUCATION <- factor(data$V4,
+                            labels = c("Graduate_school", "University", "High_school","Others"))
+
 #Replacing values
-data$V7[data$V7 >2 ]<- 2
-data$V8[data$V8 >2 ]<- 2
-data$V9[data$V9 >2 ]<- 2
-data$V10[data$V10 >2 ]<- 2
-data$V11[data$V11 >2 ]<- 2
-data$V12[data$V12 >2 ]<- 2
+# data$V7[data$V7 >2 ]<- 2
+# data$V8[data$V8 >2 ]<- 2
+# data$V9[data$V9 >2 ]<- 2
+# data$V10[data$V10 >2 ]<- 2
+# data$V11[data$V11 >2 ]<- 2
+# data$V12[data$V12 >2 ]<- 2
 
 ```
 ```{r data visualisation}
 
-data$GENDER = ifelse(data$V3 == 1, "Male", "Female")
 
-#V4: Education (1 = graduate school; 2 = university; 3 = high school; 4 = others).
-data$EDUCATION <- ifelse(data$V4%in%c(0,4,5,6), 0, data$V4)
-data$EDUCATION <- factor(data$EDUCATION,
-                            labels = c("Others","Graduate_school", "University", "High_school"))
 data$default <- as.factor(data$V25)
 
 # Bar Graph for gender
@@ -74,7 +81,7 @@ data %>%
     mutate(n = n/sum(n) * 100) %>%
     ggplot() + 
     aes(factor(EDUCATION,
-               levels = c("Others", "High_school", "University", "Graduate_school")), n,
+               levels = c("High_school", "University", "Graduate_school","Others")), n,
         fill = default, label = paste0(round(n, 2), "%")) + 
     geom_col() +
     geom_text(position=position_stack(0.5))+
