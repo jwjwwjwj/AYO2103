@@ -162,6 +162,14 @@ df <- data.frame(chistat[,1:2])
 names(df) <- c("chi2 stat", "p-value")
 df
 ```
+``` {r PartitionData}
+set.seed(1234)
+n = length(data$V1)
+index <- 1:nrow(data)
+testindex <- sample(index, trunc(n)/4)
+test.data <- data[testindex,]
+train.data <- data[-testindex,]
+```
 
 ```{r logistic regression2}
 log_model <- glm(V25 ~., data = train.data, family = "binomial")
@@ -211,11 +219,6 @@ plot(outforward, scale="r2")
 ```
 
 ```{r SVM}
-n = length(data$V1)
-index <- 1:nrow(data)
-testindex <- sample(index, trunc(n)/4)
-test.data <- data[testindex,]
-train.data <- data[-testindex,]
 
 svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
                                    data = train.data, type="C-classification",
