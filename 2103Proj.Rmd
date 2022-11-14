@@ -26,32 +26,48 @@ glimpse(data)
 str(data)
 ```
 
-```{r data processing}
+```{r data preprocessing checking for NA Values}
 
 #Checking for NA values
 any(is.na(data))
 
 summary(data)
 ```
-``` {r correlation matrix}
-#Correlation matrix
-data_onlycat <- subset(data, select = c(c(V3,V4,V5,V7,V8,V9,V10,V11,V12,V25)))
-corrplot(cor(data_onlycat))
-```
-```{r encoding values}
-#Replacing Marriage 0 to 3 (1 = married; 2 = single; 3 = others)
-data$V5 = ifelse(data$V5 == 3, 0,data$V5)
+```{r Exploratory data analysis for Gender, Education and Marital status}
+#Gender Table
+table(data$V3)
 
+#Education Table
+table(data$V4)
+
+#Marital Status 
+table(data$V5)
+
+```
+```{r data pre-processing Gender, Education and Marital Status }
 #Making a Gender column
 data$GENDER = ifelse(data$V3 == 1, "Male", "Female")
 
-# Firstly modify Education values, change values that are not 1,2,3 to 0.
-# Making an Education column (1 = graduate school; 2 = university; 3 = high school; 4 = others).
+# Firstly modify Education values, change values that are not 1,2,3 to 4.
 data$V4 = ifelse(data$V4%in%c(0,4,5,6), 4, data$V4)
 
+# Making an Education column (1 = graduate school; 2 = university; 3 = high school; 4 = others).
 data$EDUCATION <- factor(data$V4,
                             labels = c("Graduate_school", "University", "High_school","Others"))
 
+#Replacing Marriage 0 to 3 (1 = married; 2 = single; 3 = others)
+data$V5 = ifelse(data$V5 == 0, 3,data$V5)
+
+data$Marital_Status <- factor(data$V5,
+                            labels = c("Married", "Single", "Others"))
+
+```
+``` {r correlation matrix}
+#Correlation matrix
+data_onlycat <- subset(data, select = c(c(V13,V14,V15,V17,V18,V19,V20,V21,V22,V23,V24,V25)))
+corrplot(cor(data_onlycat))
+```
+```{r encoding values}
 #Replacing values
 # data$V7[data$V7 >2 ]<- 2
 # data$V8[data$V8 >2 ]<- 2
@@ -61,10 +77,31 @@ data$EDUCATION <- factor(data$V4,
 # data$V12[data$V12 >2 ]<- 2
 
 ```
-```{r data visualisation}
+```{r data visualisation of Age using histogram}
+hist(data$V6, xlab="Age", main="Histogram of Age")
+```
+```{r data visualisation of Marital Status}
+
+marital_status_plot <- ggplot(data, aes(x=Marital_Status))+
+  geom_bar() + 
+  labs(title="Marital Status") +
+  stat_count(aes(label = ..count..), geom = "label")
+
+marital_status_plot
+```
+
+```{r data visualisation of Credit limit using boxplot}
+credit_balance_plot <-ggplot(data, aes(x=V2), xlab="Credit Limit") + geom_boxplot() + coord_flip() + labs(title="Boxplot Of Credit Limit",x="Credit Limit")+
+  theme_classic()
+
+credit_balance_plot
+
+```
 
 
-data$default <- as.factor(data$V25)
+
+```{r data visualisation Gender plot}
+data$default<- ifelse(data$V25 == 1, "default", "no default")
 
 # Bar Graph for gender
 gender_plot<- ggplot(data, aes(GENDER))+
@@ -74,8 +111,12 @@ gender_plot<- ggplot(data, aes(GENDER))+
 
 gender_plot
 
+```
+```{r data visualisation Education plot}
+
+
 # Bar graph for Education
-data %>%
+education_plot <- data %>%
   count(EDUCATION, default) %>%
     group_by(EDUCATION) %>%
     mutate(n = n/sum(n) * 100) %>%
@@ -87,5 +128,10 @@ data %>%
     geom_text(position=position_stack(0.5))+
     xlab("Education")+
     ylab("%")
+
+education_plot
+
+
 ```
+
 
