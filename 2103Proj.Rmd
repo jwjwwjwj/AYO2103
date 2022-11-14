@@ -14,6 +14,18 @@ library(Hmisc)
 library(caret)
 library(leaps)
 library(e1071)
+library(ggcorrplot)
+library(ranger)
+library(caret)
+library(data.table)
+library(nnet)
+library(NeuralNetTools)
+library(smotefamily)
+library(ROSE)
+library("rpart")
+library(ROCR)
+library(pROC)
+library("caTools")
 ```
 
 ```{r read data, echo=F}
@@ -149,6 +161,7 @@ plot(outforward, scale="r2")
 #V7, V13, V8, V6, V9, V19, V5, V2
 ```
 
+
 ```{r SVM}
 n = length(data$V1)
 index <- 1:nrow(data)
@@ -225,5 +238,65 @@ mean(result_test_feature_selection == test.data$V25)
 #    1  175  395
 
 ```
+``` {r NeuralNetwork}
+#Hidden Layers = 20, decay = 0.01
+#TRAIN
+nn_hiddenlayer20 <- nnet(V25~., train.data,maxit=1000,size=20,entropy=TRUE, deacy = 0.01)
+predhl20 <- predict(nn_hiddenlayer20, data = train.data)
+train.binpredhl20 <- predict(nn_hiddenlayer20, train.data, type = c("class"))
+mean(train.data$V25 == train.binpredhl20)
+#0.779333
+auc(train.data$V25, predhl20)
+#0.6629
 
+#TEST
+predtest <- predict(nn_hiddenlayer20, data = test.data)
+test.binpred <- predict(nn_hiddenlayer20, test.data, type = c("class"))
+mean(test.data$V25 == test.binpred)
+#0.7788
+# !!!cant use auc here because length of test set not same not sure why
 
+``` {r balancing}
+#OVERSAMPLING
+oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over",
+                                      N = 2*nrow(subset(train.data, train.data$V25 == 0)))$data
+
+table(oversampled_train_data$V25)
+#UNDERSAMPLING
+undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "under",
+                                      N = 2*nrow(subset(train.data, train.data$V25 == 1)))$data
+table(undersampled_train_data$V25)
+```
+``` {r NeuralNetworkbalanced}
+#OVERSAMPLE
+#TRAIN
+nn_oversample <- nnet(V25~., oversampled_train_data,maxit=2000,size=20,entropy=TRUE, deacy = 0.01)
+predover <- predict(nn_oversample, data = oversampled_train_data)
+train.binpredover <- predict(nn_oversample, oversampled_train_data, type = c("class"))
+mean(oversampled_train_data$V25 == train.binpredover)
+#0.5981
+auc(oversampled_train_data$V25, predover)
+#0.6351
+
+#TEST
+predovertest <- predict(nn_oversample, data = test.data)
+testover.binpred <- predict(nn_oversample, test.data, type = c("class"))
+mean(test.data$V25 == testover.binpred)
+#0.6134667
+
+#UNDERSAMPLE
+#TRAIN
+nn_undersample <- nnet(V25~., undersampled_train_data,maxit=2000,size=30,entropy=TRUE, deacy = 0.005)
+predunder <- predict(nn_undersample, data = undersampled_train_data)
+train.binpredunder <- predict(nn_undersample, undersampled_train_data, type = c("class"))
+mean(undersampled_train_data$V25 == train.binpredunder)
+#0.6080918
+auc(undersampled_train_data$V25, predunder)
+#0.6642
+
+#TEST
+predundertest <- predict(nn_undersample, data = test.data)
+testunder.binpred <- predict(nn_undersample, test.data, type = c("class"))
+mean(test.data$V25 == testunder.binpred)
+
+```
