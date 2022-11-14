@@ -12,6 +12,7 @@ library(ggplot2)
 library(corrplot)
 library(Hmisc)
 library(caret)
+library(leaps)
 ```
 
 ```{r read data, echo=F}
@@ -133,5 +134,13 @@ education_plot
 
 
 ```
+
+```{r feature selection}
+outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
+summary(outforward)
+
+#V7, V13, V8, V6, V9, V19, V5, V2, 
+```
+
 
 
