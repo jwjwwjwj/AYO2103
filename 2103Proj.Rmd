@@ -76,6 +76,10 @@ data$V5 = ifelse(data$V5 == 0, 3,data$V5)
 data_v$Marital_Status <- factor(data$V5,
                             labels = c("Married", "Single", "Others"))
 
+#Changing data type of V3,V4,V5 to factors
+data$V5 <- as.factor(data$V5)
+data$V4 <- as.factor(data$V4)
+data$V3 <- as.factor(data$V3)
 ```
 ``` {r correlation matrix}
 #Correlation matrix
@@ -238,23 +242,41 @@ mean(result_test_feature_selection == test.data$V25)
 #    1  175  395
 
 ```
+
 ``` {r NeuralNetwork}
-#Hidden Layers = 20, decay = 0.01
+#BEFORE BALANCING
 #TRAIN
-nn_hiddenlayer20 <- nnet(V25~., train.data,maxit=1000,size=20,entropy=TRUE, deacy = 0.01)
-predhl20 <- predict(nn_hiddenlayer20, data = train.data)
-train.binpredhl20 <- predict(nn_hiddenlayer20, train.data, type = c("class"))
-mean(train.data$V25 == train.binpredhl20)
-#0.779333
-auc(train.data$V25, predhl20)
-#0.6629
+nn <- nnet(train.data$V25 ~., train.data[,1:24],maxit=1000,size=20,entropy=TRUE, decay = 0.01)
+pred <- predict(nn, data = train.data[,1:24])
+train.binpred <- predict(nn, train.data[,1:24], type = c("class"))
+mean(train.data$V25 == train.binpred)
+auc(train.data$V25, pred)
 
 #TEST
-predtest <- predict(nn_hiddenlayer20, data = test.data)
-test.binpred <- predict(nn_hiddenlayer20, test.data, type = c("class"))
+predtest <- predict(nn, newdata = test.data[,1:24])
+test.binpred <- predict(nn, test.data[,1:24], type = c("class"))
 mean(test.data$V25 == test.binpred)
-#0.7788
-# !!!cant use auc here because length of test set not same not sure why
+auc(test.data$V25, predtest)
+```
+``` {r decisiontree}
+#BEFORE BALANCING
+
+#TRAIN
+tree.model <- rpart(V25 ~ ., data = train.data, method = "class", minbucket = 20)
+tree.predict_train <- predict(tree.model, train.data, type = "class")
+tree.binpredict_train <- predict(tree.model, train.data)
+tree.ROCR_train <- prediction(tree.binpredict_train[,2], train.data$V25)
+tree.auc_train <- as.numeric(performance(tree.ROCR_train,"auc")@y.values)
+tree.auc_train
+#TEST
+tree.predict_test <- predict(tree.model, test.data, type = "class")
+tree.binpredict_test <- predict(tree.model, test.data)
+tree.ROCR_test <- prediction(tree.binpredict_test[,2], test.data$V25)
+tree.auc_test <- as.numeric(performance(tree.ROCR_test,"auc")@y.values)
+tree.auc_test
+rpart.plot(tree.model)
+
+```
 
 ``` {r balancing}
 #OVERSAMPLING
@@ -267,36 +289,68 @@ undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "und
                                       N = 2*nrow(subset(train.data, train.data$V25 == 1)))$data
 table(undersampled_train_data$V25)
 ```
+
+```{r decisiontree AFTER BALANCING}
+#AFTER BALANCING OVERSAMPLING
+#TRAIN
+tree.model_oversample <- rpart(V25 ~ ., data = oversampled_train_data, method = "class", minbucket = 20)
+tree.predict_oversampletrain <- predict(tree.model_oversample, oversampled_train_data, type = "class")
+tree.binpredict_oversampletrain <- predict(tree.model_oversample, oversampled_train_data)
+tree.ROCR_oversampletrain <- prediction(tree.binpredict_oversampletrain[,2], oversampled_train_data$V25)
+tree.auc_oversampletrain <- as.numeric(performance(tree.ROCR_oversampletrain,"auc")@y.values)
+tree.auc_oversampletrain
+
+#TEST
+tree.predict_oversample <- predict(tree.model_oversample, test.data, type = "class")
+tree.binpredict_oversample <- predict(tree.model_oversample, test.data)
+tree.ROCR_oversample <- prediction(tree.binpredict_oversample[,2], test.data$V25)
+tree.auc_oversample <- as.numeric(performance(tree.ROCR_oversample,"auc")@y.values)
+tree.auc_oversample
+
+#AFTER BALANCING UNDERSAMPLING
+#TRAIN
+tree.model_undersample <- rpart(V25 ~ ., data = undersampled_train_data, method = "class", minbucket = 20)
+tree.predict_undersampletrain <- predict(tree.model_undersample, undersampled_train_data, type = "class")
+tree.binpredict_undersampletrain <- predict(tree.model_undersample, undersampled_train_data)
+tree.ROCR_undersampletrain <- prediction(tree.binpredict_undersampletrain[,2], undersampled_train_data$V25)
+tree.auc_undersampletrain <- as.numeric(performance(tree.ROCR_undersampletrain,"auc")@y.values)
+tree.auc_undersampletrain
+
+#TEST
+tree.predict_undersample <- predict(tree.model_undersample, test.data, type = "class")
+tree.binpredict_undersample <- predict(tree.model_undersample, test.data)
+tree.ROCR_undersample <- prediction(tree.binpredict_undersample[,2], test.data$V25)
+tree.auc_undersample <- as.numeric(performance(tree.ROCR_undersample,"auc")@y.values)
+tree.auc_undersample
+
+
+```
+
 ``` {r NeuralNetworkbalanced}
 #OVERSAMPLE
 #TRAIN
-nn_oversample <- nnet(V25~., oversampled_train_data,maxit=2000,size=20,entropy=TRUE, deacy = 0.01)
+nn_oversample <- nnet(oversampled_train_data$V25~., oversampled_train_data[,1:24],maxit=2000,size=20,entropy=TRUE, decay = 0.01)
 predover <- predict(nn_oversample, data = oversampled_train_data)
 train.binpredover <- predict(nn_oversample, oversampled_train_data, type = c("class"))
 mean(oversampled_train_data$V25 == train.binpredover)
-#0.5981
 auc(oversampled_train_data$V25, predover)
-#0.6351
-
 #TEST
-predovertest <- predict(nn_oversample, data = test.data)
+predovertest <- predict(nn_oversample, newdata = test.data)
 testover.binpred <- predict(nn_oversample, test.data, type = c("class"))
 mean(test.data$V25 == testover.binpred)
-#0.6134667
+auc(test.data$V25, predovertest)
+
 
 #UNDERSAMPLE
 #TRAIN
-nn_undersample <- nnet(V25~., undersampled_train_data,maxit=2000,size=30,entropy=TRUE, deacy = 0.005)
+nn_undersample <- nnet(V25~., undersampled_train_data,maxit=2000,size=30,entropy=TRUE, decay = 0.005)
 predunder <- predict(nn_undersample, data = undersampled_train_data)
 train.binpredunder <- predict(nn_undersample, undersampled_train_data, type = c("class"))
 mean(undersampled_train_data$V25 == train.binpredunder)
-#0.6080918
 auc(undersampled_train_data$V25, predunder)
-#0.6642
-
 #TEST
-predundertest <- predict(nn_undersample, data = test.data)
-testunder.binpred <- predict(nn_undersample, test.data, type = c("class"))
+predundertest <- predict(nn_undersample, newdata = test.data)
+testunder.binpred <- predict(nn_undersample, newdata = test.data, type = c("class"))
 mean(test.data$V25 == testunder.binpred)
-
+auc(test.data$V25, predundertest)
 ```
