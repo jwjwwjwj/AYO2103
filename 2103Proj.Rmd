@@ -22,10 +22,10 @@ library(nnet)
 library(NeuralNetTools)
 library(smotefamily)
 library(ROSE)
-library("rpart")
+library(rpart)
 library(ROCR)
 library(pROC)
-library("caTools")
+library(caTools)
 ```
 
 ```{r read data, echo=F}
@@ -86,19 +86,11 @@ data$V3 <- as.factor(data$V3)
 data_onlycat <- subset(data, select = c(c(V13,V14,V15,V17,V18,V19,V20,V21,V22,V23,V24,V25)))
 corrplot(cor(data_onlycat))
 ```
-```{r encoding values}
-#Replacing values
-# data$V7[data$V7 >2 ]<- 2
-# data$V8[data$V8 >2 ]<- 2
-# data$V9[data$V9 >2 ]<- 2
-# data$V10[data$V10 >2 ]<- 2
-# data$V11[data$V11 >2 ]<- 2
-# data$V12[data$V12 >2 ]<- 2
 
-```
 ```{r data visualisation of Age using histogram}
 hist(data$V6, xlab="Age", main="Histogram of Age")
 ```
+
 ```{r data visualisation of Marital Status}
 
 marital_status_plot <- ggplot(data_v, aes(x=Marital_Status))+
@@ -153,7 +145,60 @@ education_plot
 
 ```
 
-```{r feature selection}
+```{r feature selection for log reg}
+chistat <- matrix(0, 10, 2)
+col  <- ncol(data) - 1
+pred <- as.factor(data[,25])
+for (i in 1:10) {
+  x <- as.factor(data[,2+i])
+  tbl <- table(x, pred)
+  chi2res <- chisq.test(tbl)
+  print(chi2res)
+  chistat[i, 1] <- chi2res$statistic
+  chistat[i, 2] <- chi2res$p.value
+}
+chistat <- chistat[-4,]
+df <- data.frame(chistat[,1:2])
+names(df) <- c("chi2 stat", "p-value")
+df
+```
+
+```{r logistic regression2}
+log_model <- glm(V25 ~., data = train.data, family = "binomial")
+summary(log_model)
+predict <- predict(log_model, test.data, type = "response")
+predict <- ifelse(predict >0.2, 1, 0)
+table <- table(test.data$V25, predict)
+table
+class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+(class_acc1 + class_acc2)/2 #average class accuracy
+1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+mean(predict == test.data$V25) #accuracy
+auc(test.data$V25, predict) #area under roc curve
+table[2,2]/(table[2,1] + table[2,2]) #specificity
+```
+
+```{r lm}
+model <- lm(V25~., data = train.data)
+summary(model)
+#V1, V10-12, V14-18, V21-24
+predict <- predict(model, test.data, type = "response")
+predict <- ifelse(predict >0.5, 1, 0)
+table(test.data$V25, predict)
+mean(predict == test.data$V25)
+better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
+summary(better_model)
+predict <- predict(better_model, test.data, type = "response")
+predict <- ifelse(predict >0.25, 1, 0)
+table(test.data$V25, predict)
+mean(predict == test.data$V25)
+predict <- predict(better_model, train.data, type = "response")
+predict <- ifelse(predict >0.25, 1, 0)
+table(train.data$V25, predict)
+mean(predict == train.data$V25)
+```
+```{r feature selection for svm}
 outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
 summary(outforward)
 plot(outforward, scale="r2")
@@ -165,50 +210,12 @@ plot(outforward, scale="r2")
 #V7, V13, V8, V6, V9, V19, V5, V2
 ```
 
-
 ```{r SVM}
 n = length(data$V1)
 index <- 1:nrow(data)
 testindex <- sample(index, trunc(n)/4)
 test.data <- data[testindex,]
 train.data <- data[-testindex,]
-
-svm.model.all.features <- svm(as.factor(V25) ~.,
-                                   data = train.data, type="C-classification",
-                                   kernel="linear")
-result_train_all <- predict(svm.model.all.features, train.data[,-25])
-result_test_all <- predict(svm.model.all.features, test.data[,-25])
-table(pred=result_train_all, actual=train.data$V25)
-table(pred=result_test_all, actual=test.data$V25)
-mean(result_train_all == train.data$V25)
-mean(result_test_all == test.data$V25)
-
-# svm.model.all.features <- svm(as.factor(V25) ~.,
-#                                    data = train.data, type="C-classification",
-#                                    kernel="linear", cross=10)
-# result_train_all <- predict(svm.model.all.features, train.data[,-25])
-# result_test_all <- predict(svm.model.all.features, test.data[,-25])
-# table(pred=result_train_all, actual=train.data$V25)
-# table(pred=result_test_all, actual=test.data$V25)
-# mean(result_train_all == train.data$V25)
-# mean(result_test_all == test.data$V25)
-
-
-# svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
-#                                    data = train.data, type="C-classification",
-#                                    kernel="linear")
-# result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
-# result_test_feature_selection <- predict(svm.model.feature.selection, test.data[,-25])
-# table(pred=result_train_feature_selection, actual=train.data$V25)
-# table(pred=result_test_feature_selection, actual=test.data$V25)
-# mean(result_train_feature_selection == train.data$V25)
-# mean(result_test_feature_selection == test.data$V25)
-
-#      actual
-# pred    0    1
-#    0 5673 1243
-#    1  181  403
-
 
 svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
                                    data = train.data, type="C-classification",
@@ -227,19 +234,6 @@ mean(result_test_feature_selection == test.data$V25)
 #    0 5065  758
 #    1  835  842
 # 0.7876
-
-# With cost=0.2, class.weights=(0.3,0.7) (test)
-#      actual
-# pred    0    1
-#    0 5335  905
-#    1  502  758
-# 0.8124
-
-# With cost = 5, no class weights (test)
-#      actual
-# pred    0    1
-#    0 5675 1255
-#    1  175  395
 
 ```
 
@@ -353,79 +347,4 @@ predundertest <- predict(nn_undersample, newdata = test.data)
 testunder.binpred <- predict(nn_undersample, newdata = test.data, type = c("class"))
 mean(test.data$V25 == testunder.binpred)
 auc(test.data$V25, predundertest)
-```
-```{r feature selection for log reg}
-chistat <- matrix(0, 10, 2)
-col  <- ncol(data) - 1
-pred <- as.factor(data[,25])
-for (i in 1:10) {
-  x <- as.factor(data[,2+i])
-  tbl <- table(x, pred)
-  chi2res <- chisq.test(tbl)
-  print(chi2res)
-  chistat[i, 1] <- chi2res$statistic
-  chistat[i, 2] <- chi2res$p.value
-}
-chistat <- chistat[-4,]
-
-
-df <- data.frame(chistat[,1:2])
-names(df) <- c("chi2 stat", "p-value")
-df
-
-```
-
-```{r logistic regression}
-#logistic model
-log_model <- glm(V25 ~ V3+V4+V5+V7+V8+V9+V10+V11+V12, data = train.data, family = "binomial")
-summary(log_model)
-
-predict <- predict(log_model, test.data, type = "response")
-predict <- ifelse(predict >0.25, 1, 0)
-#confusion matrix
-table <- table(test.data$V25, predict)
-class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
-class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
-mean(predict == test.data$V25) #accuracy
-auc(test.data$V25, predict) #area under roc curve
-table[2,2]/(table[2,1] + table[2,2]) #specificity
-```
-```{r logistic regression2}
-log_model <- glm(V25 ~., data = train.data, family = "binomial")
-summary(log_model)
-
-predict <- predict(log_model, test.data, type = "response")
-predict <- ifelse(predict >0.2, 1, 0)
-table <- table(test.data$V25, predict)
-table
-class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
-class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
-mean(predict == test.data$V25) #accuracy
-auc(test.data$V25, predict) #area under roc curve
-table[2,2]/(table[2,1] + table[2,2]) #specificity
-```
-
-```{r lm}
-model <- lm(V25~., data = train.data)
-summary(model)
-#V1, V10-12, V14-18, V21-24
-predict <- predict(model, test.data, type = "response")
-predict <- ifelse(predict >0.5, 1, 0)
-table(test.data$V25, predict)
-mean(predict == test.data$V25)
-
-better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
-summary(better_model)
-predict <- predict(better_model, test.data, type = "response")
-predict <- ifelse(predict >0.25, 1, 0)
-table(test.data$V25, predict)
-mean(predict == test.data$V25)
-predict <- predict(better_model, train.data, type = "response")
-predict <- ifelse(predict >0.25, 1, 0)
-table(train.data$V25, predict)
-mean(predict == train.data$V25)
 ```
