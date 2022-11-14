@@ -354,3 +354,78 @@ testunder.binpred <- predict(nn_undersample, newdata = test.data, type = c("clas
 mean(test.data$V25 == testunder.binpred)
 auc(test.data$V25, predundertest)
 ```
+```{r feature selection for log reg}
+chistat <- matrix(0, 10, 2)
+col  <- ncol(data) - 1
+pred <- as.factor(data[,25])
+for (i in 1:10) {
+  x <- as.factor(data[,2+i])
+  tbl <- table(x, pred)
+  chi2res <- chisq.test(tbl)
+  print(chi2res)
+  chistat[i, 1] <- chi2res$statistic
+  chistat[i, 2] <- chi2res$p.value
+}
+chistat <- chistat[-4,]
+
+
+df <- data.frame(chistat[,1:2])
+names(df) <- c("chi2 stat", "p-value")
+df
+
+```
+
+```{r logistic regression}
+#logistic model
+log_model <- glm(V25 ~ V3+V4+V5+V7+V8+V9+V10+V11+V12, data = train.data, family = "binomial")
+summary(log_model)
+
+predict <- predict(log_model, test.data, type = "response")
+predict <- ifelse(predict >0.25, 1, 0)
+#confusion matrix
+table <- table(test.data$V25, predict)
+class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+(class_acc1 + class_acc2)/2 #average class accuracy
+1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+mean(predict == test.data$V25) #accuracy
+auc(test.data$V25, predict) #area under roc curve
+table[2,2]/(table[2,1] + table[2,2]) #specificity
+```
+```{r logistic regression2}
+log_model <- glm(V25 ~., data = train.data, family = "binomial")
+summary(log_model)
+
+predict <- predict(log_model, test.data, type = "response")
+predict <- ifelse(predict >0.2, 1, 0)
+table <- table(test.data$V25, predict)
+table
+class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+(class_acc1 + class_acc2)/2 #average class accuracy
+1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+mean(predict == test.data$V25) #accuracy
+auc(test.data$V25, predict) #area under roc curve
+table[2,2]/(table[2,1] + table[2,2]) #specificity
+```
+
+```{r lm}
+model <- lm(V25~., data = train.data)
+summary(model)
+#V1, V10-12, V14-18, V21-24
+predict <- predict(model, test.data, type = "response")
+predict <- ifelse(predict >0.5, 1, 0)
+table(test.data$V25, predict)
+mean(predict == test.data$V25)
+
+better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
+summary(better_model)
+predict <- predict(better_model, test.data, type = "response")
+predict <- ifelse(predict >0.25, 1, 0)
+table(test.data$V25, predict)
+mean(predict == test.data$V25)
+predict <- predict(better_model, train.data, type = "response")
+predict <- ifelse(predict >0.25, 1, 0)
+table(train.data$V25, predict)
+mean(predict == train.data$V25)
+```
