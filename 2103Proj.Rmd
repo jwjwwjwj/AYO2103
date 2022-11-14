@@ -11,6 +11,8 @@ library(readxl)
 library(ggplot2)
 library(ggcorrplot)
 library(linprog)
+library(nnet)
+library(NeuralNetTools)
 ```
 
 ```{r read data}
@@ -24,6 +26,31 @@ test.data <- data[testindex,]
 train.data <- data[-testindex,]
 ```
 
+```{r data processing}
+glimpse(data)
+
+str(data)
+
+table(data$V25)
+
+ggplot(data$V25) + geom_bar()
+```
+``` {r correlation matrix}
+#Correlation matrix
+data_onlycat <- subset(data, select = c(c(V3,V4,V5,V7,V8,V9,V10,V11,V12)))
+ggcorrplot(cor(data_onlycat), hc.order = T, lab = T, type = "lower")
+```
+```{r encoding values}
+#Replacing values
+data$V7[data$V7 >2 ]<- 2
+data$V8[data$V8 >2 ]<- 2
+data$V9[data$V9 >2 ]<- 2
+data$V10[data$V10 >2 ]<- 2
+data$V11[data$V11 >2 ]<- 2
+data$V12[data$V12 >2 ]<- 2
+
+```
+
 ```{r logistic regression}
 log_model <- glm(V25 ~ V1 +V2+V3+V4+V5+V6+V7+V8+V9+V10+V11+V12+V13+V14+V15+V16+V17+V18+V19+V20+V21+V22+V23+V24, data = train.data, family = "binomial")
 summary(log_model)
@@ -32,4 +59,19 @@ predict <- predict(log_model, test.data, type = "response")
 predict <- ifelse(predict >0.5, 1, 0)
 table(test.data$V25, predict)
 mean(predict == test.data$V25)
+```
+
+```{r nn}
+nn <- nnet(V25~., train.data, size = 20, maxit = 1000, entropy = T)
+plotnet(nn)
+
+train.pred <- predict(nn,data=train.data)
+predict <- ifelse(train.pred >0.5, 1, 0)
+table(train.data$V25, predict)
+mean(predict == test.data$V25)
+ntrain <- nrow(train.data)
+SSresiduals <- apply(nn$residuals, 1:2, function(x) x*x)
+rmse <- sqrt(sum(SSresiduals)/(7*ntrain-1))
+rmse
+sqrt(sum(nn$residuals^2)/(7*length(nn$residuals) - 1))
 ```
