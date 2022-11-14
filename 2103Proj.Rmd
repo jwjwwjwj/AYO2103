@@ -48,6 +48,7 @@ any(is.na(data))
 
 summary(data)
 ```
+
 ```{r Exploratory data analysis for Gender, Education and Marital status}
 #Gender Table
 table(data$V3)
@@ -59,6 +60,7 @@ table(data$V4)
 table(data$V5)
 
 ```
+
 ```{r data pre-processing Gender, Education and Marital Status }
 #Making a Gender column
 data_v$GENDER = ifelse(data$V3 == 1, "Male", "Female")
@@ -81,6 +83,7 @@ data$V5 <- as.factor(data$V5)
 data$V4 <- as.factor(data$V4)
 data$V3 <- as.factor(data$V3)
 ```
+
 ``` {r correlation matrix}
 #Correlation matrix
 data_onlycat <- subset(data, select = c(c(V13,V14,V15,V17,V18,V19,V20,V21,V22,V23,V24,V25)))
@@ -123,6 +126,7 @@ gender_plot<- ggplot(data_v, aes(GENDER))+
 gender_plot
 
 ```
+
 ```{r data visualisation Education plot}
 
 
@@ -162,7 +166,8 @@ df <- data.frame(chistat[,1:2])
 names(df) <- c("chi2 stat", "p-value")
 df
 ```
-``` {r PartitionData}
+
+```{r PartitioningData}
 set.seed(1234)
 n = length(data$V1)
 index <- 1:nrow(data)
@@ -185,6 +190,9 @@ class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
 mean(predict == test.data$V25) #accuracy
 auc(test.data$V25, predict) #area under roc curve
 table[2,2]/(table[2,1] + table[2,2]) #specificity
+recall <- table[1,1]/(table[1,1] + table[1,2])
+precision <- table[1,1]/(table[1,1] + table[2,1])
+F2 <- 2*recall*precision/(recall + precision) #F2 statistic
 ```
 
 ```{r lm}
@@ -198,11 +206,11 @@ mean(predict == test.data$V25)
 better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
 summary(better_model)
 predict <- predict(better_model, test.data, type = "response")
-predict <- ifelse(predict >0.25, 1, 0)
+predict <- ifelse(predict >0.5, 1, 0)
 table(test.data$V25, predict)
 mean(predict == test.data$V25)
 predict <- predict(better_model, train.data, type = "response")
-predict <- ifelse(predict >0.25, 1, 0)
+predict <- ifelse(predict >0.5, 1, 0)
 table(train.data$V25, predict)
 mean(predict == train.data$V25)
 ```
@@ -219,11 +227,10 @@ plot(outforward, scale="r2")
 ```
 
 ```{r SVM}
-
 svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
                                    data = train.data, type="C-classification",
                                    kernel="linear", cost=0.2, 
-                                   class.weights=c("0"=0.2, "1"=0.8))
+                                   class.weights=c("0"=0.185, "1"=0.815))
 result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
 result_test_feature_selection <- predict(svm.model.feature.selection, test.data[,-25])
 table(pred=result_train_feature_selection, actual=train.data$V25)
@@ -255,6 +262,7 @@ test.binpred <- predict(nn, test.data[,1:24], type = c("class"))
 mean(test.data$V25 == test.binpred)
 auc(test.data$V25, predtest)
 ```
+
 ``` {r decisiontree}
 #BEFORE BALANCING
 
@@ -279,10 +287,61 @@ oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over
                                       N = 2*nrow(subset(train.data, train.data$V25 == 0)))$data
 
 table(oversampled_train_data$V25)
-#UNDERSAMPLING
-undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "under",
-                                      N = 2*nrow(subset(train.data, train.data$V25 == 1)))$data
-table(undersampled_train_data$V25)
+```
+
+```{r svm AFTER BALANCING}
+
+svm.model.feature.selection.balanced <- svm(as.factor(V25) ~ V7 + V13 + V8,
+                                   data = oversampled_train_data, type="C-classification",
+                                   kernel="linear", cost=0.2)
+result_train_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, oversampled_train_data[,-25])
+result_test_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, test.data[,-25])
+table(pred=result_train_feature_selection_balanced, actual=oversampled_train_data$V25)
+table(pred=result_test_feature_selection_balanced, actual=test.data$V25)
+mean(result_train_feature_selection_balanced == oversampled_train_data$V25)
+mean(result_test_feature_selection_balanced == test.data$V25)
+
+
+```
+
+``` {r logistic regression AFTER BALANCING}
+log_model_balanced <- glm(V25 ~., data = oversampled_train_data, family = "binomial")
+summary(log_model_balanced)
+predictlr_balanced <- predict(log_model_balanced, test.data, type = "response")
+predictlr_balanced <- ifelse(predictlr_balanced >0.5, 1, 0)
+tablelr <- table(test.data$V25, predictlr_balanced)
+tablelr
+class_acc1 <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
+class_acc2 <- tablelr[2,1]/(tablelr[2,1] + tablelr[2,2])
+(class_acc1 + class_acc2)/2 #average class accuracy
+1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+mean(predictlr_balanced == test.data$V25) #accuracy
+auc(test.data$V25, predictlr_balanced) #area under roc curve
+tablelr[2,2]/(tablelr[2,1] + tablelr[2,2]) #specificity
+recalllr <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
+precisionlr <- tablelr[1,1]/(tablelr[1,1] + tablelr[2,1])
+F2lr <- 2*recalllr*precisionlr/(recalllr + precisionlr) #F2 statistic
+```
+
+```{r lm after balance}
+
+better_model_balanced <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = oversampled_train_data)
+summary(better_model_balanced)
+predict_balanced <- predict(better_model_balanced, test.data, type = "response")
+predict_balanced <- ifelse(predict_balanced >0.5, 1, 0)
+table(test.data$V25, predict_balanced)
+mean(predict_balanced == test.data$V25)
+
+predictlm <- predict(better_model_balanced, oversampled_train_data, type = "response")
+predictlm <- ifelse(predictlm >0.5, 1, 0)
+table(oversampled_train_data$V25, predictlm)
+mean(predictlm == oversampled_train_data$V25)
+```
+
+```{r feature selection for svm}
+outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
+summary(outforward)
+plot(outforward, scale="r2")
 ```
 
 ```{r decisiontree AFTER BALANCING}
@@ -302,22 +361,6 @@ tree.ROCR_oversample <- prediction(tree.binpredict_oversample[,2], test.data$V25
 tree.auc_oversample <- as.numeric(performance(tree.ROCR_oversample,"auc")@y.values)
 tree.auc_oversample
 
-#AFTER BALANCING UNDERSAMPLING
-#TRAIN
-tree.model_undersample <- rpart(V25 ~ ., data = undersampled_train_data, method = "class", minbucket = 20)
-tree.predict_undersampletrain <- predict(tree.model_undersample, undersampled_train_data, type = "class")
-tree.binpredict_undersampletrain <- predict(tree.model_undersample, undersampled_train_data)
-tree.ROCR_undersampletrain <- prediction(tree.binpredict_undersampletrain[,2], undersampled_train_data$V25)
-tree.auc_undersampletrain <- as.numeric(performance(tree.ROCR_undersampletrain,"auc")@y.values)
-tree.auc_undersampletrain
-
-#TEST
-tree.predict_undersample <- predict(tree.model_undersample, test.data, type = "class")
-tree.binpredict_undersample <- predict(tree.model_undersample, test.data)
-tree.ROCR_undersample <- prediction(tree.binpredict_undersample[,2], test.data$V25)
-tree.auc_undersample <- as.numeric(performance(tree.ROCR_undersample,"auc")@y.values)
-tree.auc_undersample
-
 
 ```
 
@@ -329,6 +372,7 @@ predover <- predict(nn_oversample, data = oversampled_train_data)
 train.binpredover <- predict(nn_oversample, oversampled_train_data, type = c("class"))
 mean(oversampled_train_data$V25 == train.binpredover)
 auc(oversampled_train_data$V25, predover)
+
 #TEST
 predovertest <- predict(nn_oversample, newdata = test.data)
 testover.binpred <- predict(nn_oversample, test.data, type = c("class"))
@@ -336,16 +380,4 @@ mean(test.data$V25 == testover.binpred)
 auc(test.data$V25, predovertest)
 
 
-#UNDERSAMPLE
-#TRAIN
-nn_undersample <- nnet(V25~., undersampled_train_data,maxit=2000,size=30,entropy=TRUE, decay = 0.005)
-predunder <- predict(nn_undersample, data = undersampled_train_data)
-train.binpredunder <- predict(nn_undersample, undersampled_train_data, type = c("class"))
-mean(undersampled_train_data$V25 == train.binpredunder)
-auc(undersampled_train_data$V25, predunder)
-#TEST
-predundertest <- predict(nn_undersample, newdata = test.data)
-testunder.binpred <- predict(nn_undersample, newdata = test.data, type = c("class"))
-mean(test.data$V25 == testunder.binpred)
-auc(test.data$V25, predundertest)
 ```
