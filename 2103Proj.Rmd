@@ -268,8 +268,6 @@ tree.binpredict_test <- predict(tree.model, test.data)
 tree.ROCR_test <- prediction(tree.binpredict_test[,2], test.data$V25)
 tree.auc_test <- as.numeric(performance(tree.ROCR_test,"auc")@y.values)
 tree.auc_test
-rpart.plot(tree.model)
-
 ```
 
 ``` {r balancing}
