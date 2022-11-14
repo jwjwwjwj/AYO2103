@@ -13,10 +13,12 @@ library(corrplot)
 library(Hmisc)
 library(caret)
 library(leaps)
+library(e1071)
 ```
 
 ```{r read data, echo=F}
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
+data_v <-data
 header <- scan("card.csv",sep=",",nlines=2,what=character())
 ```
 
@@ -47,19 +49,19 @@ table(data$V5)
 ```
 ```{r data pre-processing Gender, Education and Marital Status }
 #Making a Gender column
-data$GENDER = ifelse(data$V3 == 1, "Male", "Female")
+data_v$GENDER = ifelse(data$V3 == 1, "Male", "Female")
 
 # Firstly modify Education values, change values that are not 1,2,3 to 4.
 data$V4 = ifelse(data$V4%in%c(0,4,5,6), 4, data$V4)
 
 # Making an Education column (1 = graduate school; 2 = university; 3 = high school; 4 = others).
-data$EDUCATION <- factor(data$V4,
+data_v$EDUCATION <- factor(data$V4,
                             labels = c("Graduate_school", "University", "High_school","Others"))
 
 #Replacing Marriage 0 to 3 (1 = married; 2 = single; 3 = others)
 data$V5 = ifelse(data$V5 == 0, 3,data$V5)
 
-data$Marital_Status <- factor(data$V5,
+data_v$Marital_Status <- factor(data$V5,
                             labels = c("Married", "Single", "Others"))
 
 ```
@@ -83,7 +85,7 @@ hist(data$V6, xlab="Age", main="Histogram of Age")
 ```
 ```{r data visualisation of Marital Status}
 
-marital_status_plot <- ggplot(data, aes(x=Marital_Status))+
+marital_status_plot <- ggplot(data_v, aes(x=Marital_Status))+
   geom_bar() + 
   labs(title="Marital Status") +
   stat_count(aes(label = ..count..), geom = "label")
@@ -92,7 +94,7 @@ marital_status_plot
 ```
 
 ```{r data visualisation of Credit limit using boxplot}
-credit_balance_plot <-ggplot(data, aes(x=V2), xlab="Credit Limit") + geom_boxplot() + coord_flip() + labs(title="Boxplot Of Credit Limit",x="Credit Limit")+
+credit_balance_plot <-ggplot(data_v, aes(x=V2), xlab="Credit Limit") + geom_boxplot() + coord_flip() + labs(title="Boxplot Of Credit Limit",x="Credit Limit")+
   theme_classic()
 
 credit_balance_plot
@@ -102,10 +104,10 @@ credit_balance_plot
 
 
 ```{r data visualisation Gender plot}
-data$default<- ifelse(data$V25 == 1, "default", "no default")
+data_v$default<- ifelse(data$V25 == 1, "default", "no default")
 
 # Bar Graph for gender
-gender_plot<- ggplot(data, aes(GENDER))+
+gender_plot<- ggplot(data_v, aes(GENDER))+
   geom_bar(aes(fill=default), width = 0.5) + 
   labs(title="Gender") +
   stat_count(aes(label = ..count..), geom = "label")
@@ -117,7 +119,7 @@ gender_plot
 
 
 # Bar graph for Education
-education_plot <- data %>%
+education_plot <- data_v %>%
   count(EDUCATION, default) %>%
     group_by(EDUCATION) %>%
     mutate(n = n/sum(n) * 100) %>%
@@ -138,9 +140,90 @@ education_plot
 ```{r feature selection}
 outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
 summary(outforward)
+plot(outforward, scale="r2")
 
-#V7, V13, V8, V6, V9, V19, V5, V2, 
+# inbackward <- regsubsets(data$V25 ~., data = data, method="backward")
+# summary(inbackward)
+# plot(inbackward, scale="r2")
+
+#V7, V13, V8, V6, V9, V19, V5, V2
 ```
 
+```{r SVM}
+n = length(data$V1)
+index <- 1:nrow(data)
+testindex <- sample(index, trunc(n)/4)
+test.data <- data[testindex,]
+train.data <- data[-testindex,]
+
+svm.model.all.features <- svm(as.factor(V25) ~.,
+                                   data = train.data, type="C-classification",
+                                   kernel="linear")
+result_train_all <- predict(svm.model.all.features, train.data[,-25])
+result_test_all <- predict(svm.model.all.features, test.data[,-25])
+table(pred=result_train_all, actual=train.data$V25)
+table(pred=result_test_all, actual=test.data$V25)
+mean(result_train_all == train.data$V25)
+mean(result_test_all == test.data$V25)
+
+# svm.model.all.features <- svm(as.factor(V25) ~.,
+#                                    data = train.data, type="C-classification",
+#                                    kernel="linear", cross=10)
+# result_train_all <- predict(svm.model.all.features, train.data[,-25])
+# result_test_all <- predict(svm.model.all.features, test.data[,-25])
+# table(pred=result_train_all, actual=train.data$V25)
+# table(pred=result_test_all, actual=test.data$V25)
+# mean(result_train_all == train.data$V25)
+# mean(result_test_all == test.data$V25)
+
+
+# svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
+#                                    data = train.data, type="C-classification",
+#                                    kernel="linear")
+# result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
+# result_test_feature_selection <- predict(svm.model.feature.selection, test.data[,-25])
+# table(pred=result_train_feature_selection, actual=train.data$V25)
+# table(pred=result_test_feature_selection, actual=test.data$V25)
+# mean(result_train_feature_selection == train.data$V25)
+# mean(result_test_feature_selection == test.data$V25)
+
+#      actual
+# pred    0    1
+#    0 5673 1243
+#    1  181  403
+
+
+svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
+                                   data = train.data, type="C-classification",
+                                   kernel="linear", cost=0.2, 
+                                   class.weights=c("0"=0.2, "1"=0.8))
+result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
+result_test_feature_selection <- predict(svm.model.feature.selection, test.data[,-25])
+table(pred=result_train_feature_selection, actual=train.data$V25)
+table(pred=result_test_feature_selection, actual=test.data$V25)
+mean(result_train_feature_selection == train.data$V25)
+mean(result_test_feature_selection == test.data$V25)
+
+# With cost=0.2, (0.2,0.8) (test)
+#     actual
+# pred    0    1
+#    0 5065  758
+#    1  835  842
+# 0.7876
+
+# With cost=0.2, class.weights=(0.3,0.7) (test)
+#      actual
+# pred    0    1
+#    0 5335  905
+#    1  502  758
+# 0.8124
+
+# With cost = 5, no class weights (test)
+#      actual
+# pred    0    1
+#    0 5675 1255
+#    1  175  395
+
+```
 
 
