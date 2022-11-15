@@ -42,10 +42,8 @@ header <- scan("card.csv",sep=",",nlines=2,what=character())
 We take a look at the data to see what types of data we are given
 ```{r data structure}
 head(data)
-glimpse(data)
 str(data)
 ```
-\pagebreak
 We check for any NA values and look at a summary of the variables we have
 ```{r data preprocessing checking for NA Values}
 
@@ -101,7 +99,7 @@ ggcorrplot(cor(data_onlycat), method = "circle", lab = T, lab_size = 2)
 ```
 \pagebreak
 We take a look at the distribution of ages in our dataset
-```{r data visualisation of Age using histogram, fig.align = "center", echo = F}
+```{r data visualisation of Age using histogram, fig.height=4,fig.align = "center", echo = F}
 hist(data$V6, xlab="Age", main="Histogram of Age")
 ```
 We also look at the distribution of marital statuses in our dataset
@@ -168,6 +166,7 @@ train.data <- data[-testindex,]
 ```
 \pagebreak
 # Feature Selection and Model Selection
+## Logistic Regression Model
 We check the chi square value for categorical variables to see which ones to include.
 ```{r feature selection for log reg, echo = F, warning = F}
 chistat <- matrix(0, 10, 2)
@@ -177,7 +176,6 @@ for (i in 1:10) {
   x <- as.factor(data[,2+i])
   tbl <- table(x, pred)
   chi2res <- chisq.test(tbl)
-  print(chi2res)
   chistat[i, 1] <- chi2res$statistic
   chistat[i, 2] <- chi2res$p.value
 }
@@ -192,6 +190,7 @@ log_model <- glm(V25 ~., data = train.data, family = "binomial")
 summary(log_model)
 ```
 After running the model, we remove variables that are not significant. (V1, V10-12, V14-18, V21-23)
+We run the improved logistic model and calculate the metrics.
 ```{r logistic regression, echo = F}
 
 #V1, V10-12, V14-18, V21-23
@@ -200,11 +199,11 @@ summary(better_log_model)
 predict <- predict(better_log_model, test.data, type = "response")
 predict <- ifelse(predict >0.5, 1, 0)
 table <- table(test.data$V25, predict)
-table
-class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
-class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+table #confusion matrix
+#class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+#class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+#(class_acc1 + class_acc2)/2 #average class accuracy
+#1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
 acc <- mean(predict == test.data$V25) #accuracy
 roc <- auc(test.data$V25, predict) #area under roc curve
 specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
@@ -214,21 +213,26 @@ F1 <- 2*recall*precision/(recall + precision) #F1 statistic
 log_metrics <- c(acc, specificity, roc, F1)
 metrics <- t(as.data.frame(log_metrics))
 ```
-
-```{r lm, echo = F}
+\pagebreak
+## Linear regression model
+We run the inital linear regression model and remove the attributes that are not statistically significant.
+```{r lm feature selection, echo = F}
 model <- lm(V25~., data = train.data)
 summary(model)
 #V1, V10-12, V14-18, V21-24
+```
+We find that variables V1, V10-V12, V14-18 and V21-24 are not significant. We run an improved model with only statistically significant variables.
+```{r lm, echo = F}
 better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
 summary(better_model)
 predict <- predict(better_model, test.data, type = "response")
 predict <- ifelse(predict >0.5, 1, 0)
 table <- table(test.data$V25, predict)
-table
-class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
-class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+table #confusion matrix
+#class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+#class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+#(class_acc1 + class_acc2)/2 #average class accuracy
+#1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
 acc <- mean(predict == test.data$V25) #accuracy
 roc <- auc(test.data$V25, predict) #area under roc curve
 specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
@@ -238,10 +242,11 @@ F1 <- 2*recall*precision/(recall + precision) #F1 statistic
 lm_metrics <- c(acc, specificity, roc, F1)
 metrics <- rbind(metrics, lm_metrics)
 ```
-
-```{r feature selection for svm, echo = F}
-outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
-summary(outforward)
+\pagebreak
+## Support vector Machine
+First we do feature selection for our model.
+```{r feature selection for svm, fig.align = "center",echo = F}
+outforward <- regsubsets(V25 ~., data = train.data, method = "forward")
 plot(outforward, scale="r2")
 
 # inbackward <- regsubsets(data$V25 ~., data = data, method="backward")
@@ -250,6 +255,8 @@ plot(outforward, scale="r2")
 
 #V7, V13, V8, V6, V9, V19, V5, V2
 ```
+From the graph, we select only the top 3 variables being V7, V13 and then V8.  
+The reason why we choose only 3 is because that improves the R-squared score to 0.12, but adding the other variables does not improve the R-squared score much higher.
 
 ```{r SVM, echo = F}
 svm.model.feature.selection <- svm(V25 ~ V7 + V13 + V8,
@@ -264,11 +271,11 @@ table(pred=result_test_feature_selection, actual=test.data$V25)
 mean(result_test_feature_selection == test.data$V25)
 
 tablesvm <- table(test.data$V25, result_test_feature_selection)
-tablesvm
-class_accsvm1 <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
-class_accsvm2 <- tablesvm[2,1]/(tablesvm[2,1] + tablesvm[2,2])
-(class_accsvm1 + class_accsvm2)/2 #average class accuracy
-1/((1/class_accsvm1)+(1/class_accsvm2)) #harmonic mean
+tablesvm #confusion matrix
+#class_accsvm1 <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
+#class_accsvm2 <- tablesvm[2,1]/(tablesvm[2,1] + tablesvm[2,2])
+#(class_accsvm1 + class_accsvm2)/2 #average class accuracy
+#1/((1/class_accsvm1)+(1/class_accsvm2)) #harmonic mean
 accsvm <- mean(result_test_feature_selection == test.data$V25) #accuracy
 rocsvm <- auc(test.data$V25, as.numeric(result_test_feature_selection)) #area under roc curve
 specificitysvm <- tablesvm[2,2]/(tablesvm[2,1] + tablesvm[2,2]) #specificity
@@ -285,6 +292,11 @@ metrics <- rbind(metrics, svm_metrics)
 #    1  835  842
 # 0.7876
 ```
+\pagebreak
+## Neural Network
+
+We chose to use the same 3 variables selected by our Support Vector Machine.
+The reason why we did not include more variables is because our testing has shown that more variables led to the neural network being overfitted, and thus showing worse results than desired.
 
 ``` {r NeuralNetwork, echo = F}
 #BEFORE BALANCING
@@ -302,11 +314,11 @@ test.binpred <- predict(nn, test.data, type = c("class"))
 #auc(test.data$V25, predtest)
 
 tablenn <- table(test.data$V25, test.binpred)
-tablenn
-class_accnn1 <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
-class_accnn2 <- tablenn[2,1]/(tablenn[2,1] + tablenn[2,2])
-(class_accnn1 + class_accnn2)/2 #average class accuracy
-1/((1/class_accnn1)+(1/class_accnn2)) #harmonic mean
+tablenn #confusion matrix
+#class_accnn1 <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
+#class_accnn2 <- tablenn[2,1]/(tablenn[2,1] + tablenn[2,2])
+#(class_accnn1 + class_accnn2)/2 #average class accuracy
+#1/((1/class_accnn1)+(1/class_accnn2)) #harmonic mean
 accnn <- mean(test.binpred == test.data$V25) #accuracy
 rocnn <- auc(test.data$V25, as.numeric(test.binpred)) #area under roc curve
 specificitynn <- tablenn[2,2]/(tablenn[2,1] + tablenn[2,2]) #specificity
@@ -316,17 +328,23 @@ F1nn <- 2*recallnn*precisionnn/(recallnn + precisionnn) #F1 statistic
 nn_metrics <- c(accnn, specificitynn, rocnn, F1nn)
 metrics <- rbind(metrics, nn_metrics)
 ```
+\pagebreak
+## Decision Tree
+
+We use the top 3 variables V7, V13, and V8.
 
 ``` {r decisiontree, echo = F}
 #BEFORE BALANCING
 tree.model<- ctree(as.factor(V25) ~ V7 + V13 + V8, train.data)
 tree.predict_test <-predict(tree.model, test.data)
+plot(tree.model)
 
 tabletree <- table(test.data$V25, tree.predict_test)
-class_acctree1 <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
-class_acctree2 <- tabletree[2,1]/(tabletree[2,1] + tabletree[2,2])
-(class_acctree1 + class_acctree2)/2 #average class accuracy
-1/((1/class_acctree1)+(1/class_acctree2)) #harmonic mean
+tabletree #confusion matrix
+#class_acctree1 <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
+#class_acctree2 <- tabletree[2,1]/(tabletree[2,1] + tabletree[2,2])
+#(class_acctree1 + class_acctree2)/2 #average class accuracy
+#1/((1/class_acctree1)+(1/class_acctree2)) #harmonic mean
 acctree <- mean(tree.predict_test == test.data$V25) #accuracy
 roctree <- auc(test.data$V25, as.numeric(tree.predict_test)) #area under roc curve
 specificitytree <- tabletree[2,2]/(tabletree[2,1] + tabletree[2,2]) #specificity
@@ -335,7 +353,6 @@ precisiontree <- tabletree[1,1]/(tabletree[1,1] + tabletree[2,1])
 F1tree <- 2*recalltree*precisiontree/(recalltree + precisiontree) #F1 statistic
 tree_metrics <- c(acctree, specificitytree, roctree, F1tree)
 metrics <- rbind(metrics, tree_metrics)
-plot(tree.model)
 
 row.names(metrics) <- c("Linear Regression", "Logistic Regression", "Support Vector Machine","Neural Network","Decision Tree")
 
@@ -343,7 +360,16 @@ colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1 St
 
 
 ```
+\pagebreak
+# Model Evaluation
+We evaluate our models using 4 metrics, namely, Accuracy, Specificity, Area under ROC Curve, and F1 Statistic.
+```{r metrics, echo = F}
 
+kable(metrics)
+
+```
+
+```{r balancing code, echo = F}
 # ``` {r balancing}
 # #OVERSAMPLING
 # oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over",
@@ -460,3 +486,4 @@ colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1 St
 # F1nnbal
 # 
 # ```
+```
