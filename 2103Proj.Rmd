@@ -1,9 +1,12 @@
 ---
-title: "2103 Project"
+title: "BT2103 Project"
+header-includes:
+  - \usepackage{pdflscape}
+  - \newcommand{\blandscape}{\begin{landscape}}
+  - \newcommand{\elandscape}{\end{landscape}}
 output: pdf_document
-date: "`r Sys.Date()`"
+date: "16 November 2022"
 ---
-
 ```{r setup, echo = F, include = F}
 library(knitr)
 library(dplyr)
@@ -32,16 +35,40 @@ library(mvtnorm)
 library(libcoin)
 ```
 
+```{r img-with-knitr, echo=F, fig.align='center', out.width='70%'}
+knitr::include_graphics("nus_logo_full-vertical.jpg")
+```
+
+```{r name, echo=FALSE, fig.align='center', out.width='100%'}
+nameV <- c("Cheong Wen Wei", "Gao Heng", "Hom Lim Jun How", "Lee Jun Wei")
+numV <- c("A0233582E", "A0234014X", "A0235131W", "A0230329M")
+cover <- data.frame(nameV, numV)
+colnames(cover) <- c("Student Name", "Student Number")
+kable(cover, align='c', padding=30)
+```
+\pagenumbering{gobble}
+\pagebreak
+\pagenumbering{arabic}
+\setcounter{page}{2}
+\setcounter{tocdepth}{4}
+\tableofcontents
+\newpage
+
 ```{r read data, echo=F}
 data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
 data_v <-data
 header <- scan("card.csv",sep=",",nlines=2,what=character())
 ```
 
-# Intro of Dataset
+# Overview
+## Description of Problem
+<p align="justify">
+ 
+</p>
+## Data
+The dataset used for this project contains information of 30,000 credit card holders obtained from a bank in Taiwan. Each credit card holder is described by 23 feature attributes.
 We take a look at the data to see what types of data we are given
 ```{r data structure}
-head(data)
 str(data)
 ```
 We check for any NA values and look at a summary of the variables we have
@@ -100,7 +127,7 @@ ggcorrplot(cor(data_onlycat), method = "circle", lab = T, lab_size = 2)
 \pagebreak
 We take a look at the distribution of ages in our dataset
 ```{r data visualisation of Age using histogram, fig.height=4,fig.align = "center", echo = F}
-hist(data$V6, xlab="Age", main="Histogram of Age")
+hist(data$V6, xlab="Age", main="Histogram of Age", las=1, col="skyblue")
 ```
 We also look at the distribution of marital statuses in our dataset
 ```{r data visualisation of Marital Status, fig.align = "center", fig.height=4,echo = F, warning = F}
@@ -114,7 +141,7 @@ marital_status_plot
 ```
 We check the boxplot of credit limit 
 ```{r data visualisation of Credit limit using boxplot,fig.height=4, fig.align = "center", echo = F}
-credit_balance_plot <-ggplot(data_v, aes(x=V2), xlab="Credit Limit") + geom_boxplot() + coord_flip() + labs(title="Boxplot Of Credit Limit",x="Credit Limit")+
+credit_balance_plot <- ggplot(data_v, aes(x=V2/1000)) + geom_boxplot() + coord_flip() + labs(title="Boxplot of Credit Limit",x="Credit Limit (in thousands)")+
   theme_classic()
 
 credit_balance_plot
@@ -329,15 +356,27 @@ nn_metrics <- c(accnn, specificitynn, rocnn, F1nn)
 metrics <- rbind(metrics, nn_metrics)
 ```
 \pagebreak
+\blandscape
+
+\def\fillandplacepagenumber{%
+ \par\pagestyle{empty}%
+ \vbox to 0pt{\vss}\vfill
+ \vbox to 10pt{\baselineskip0pt
+   \hbox to\linewidth{\hss}%
+   \baselineskip\footskip
+   \hbox to\linewidth{%
+     \hfil\thepage\hfil}\vss}}
+
 ## Decision Tree
 
 We use the top 3 variables V7, V13, and V8.
-
-``` {r decisiontree, echo = F}
+``` {r decisiontree, echo = F, fig.align='center', out.width='95%'}
 #BEFORE BALANCING
 tree.model<- ctree(as.factor(V25) ~ V7 + V13 + V8, train.data)
 tree.predict_test <-predict(tree.model, test.data)
-plot(tree.model)
+#plot(tree.model)
+
+knitr::include_graphics("DT.jpg")
 
 tabletree <- table(test.data$V25, tree.predict_test)
 tabletree #confusion matrix
@@ -357,15 +396,16 @@ metrics <- rbind(metrics, tree_metrics)
 row.names(metrics) <- c("Linear Regression", "Logistic Regression", "Support Vector Machine","Neural Network","Decision Tree")
 
 colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1 Statistic")
-
-
 ```
+\fillandplacepagenumber
+
+\elandscape
 \pagebreak
 # Model Evaluation
 We evaluate our models using 4 metrics, namely, Accuracy, Specificity, Area under ROC Curve, and F1 Statistic.
 ```{r metrics, echo = F}
 
-kable(metrics)
+kable(round(metrics, 2), align='c')
 
 ```
 
