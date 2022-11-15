@@ -4,7 +4,7 @@ output: pdf_document
 date: "`r Sys.Date()`"
 ---
 
-```{r setup}
+```{r setup, echo = F, include = F}
 library(knitr)
 library(dplyr)
 library(readxl)
@@ -38,13 +38,13 @@ data_v <-data
 header <- scan("card.csv",sep=",",nlines=2,what=character())
 ```
 
-
+# Intro of Dataset
+We take a look at the data to see what types of data we are given
 ```{r data structure}
 head(data)
-glimpse(data)
 str(data)
 ```
-
+We check for any NA values and look at a summary of the variables we have
 ```{r data preprocessing checking for NA Values}
 
 #Checking for NA values
@@ -52,7 +52,9 @@ any(is.na(data))
 
 summary(data)
 ```
-
+\pagebreak
+# Exploratory Data Analysis
+We check our categorical variables Gender, Education and Marital Status
 ```{r Exploratory data analysis for Gender, Education and Marital status}
 #Gender Table
 table(data$V3)
@@ -64,8 +66,9 @@ table(data$V4)
 table(data$V5)
 
 ```
-
-```{r data pre-processing Gender, Education and Marital Status }
+We observe that Education has certain unknown observations that we can clump under the category "others".
+Similarly, we categorise certain unknown observations under "others" for Marital Status.
+```{r data pre-processing Gender, Education and Marital Status, echo = F}
 #Making a Gender column
 data_v$GENDER = ifelse(data$V3 == 1, "Male", "Female")
 
@@ -87,18 +90,20 @@ data$V5 <- as.factor(data$V5)
 data$V4 <- as.factor(data$V4)
 data$V3 <- as.factor(data$V3)
 ```
-
-``` {r correlation matrix}
+\pagebreak
+We check our continuous variables to check if any of them has strong explanatory power for our variable of interest V25 using a correlation matrix
+``` {r correlation matrix, fig.align = "center", echo = F}
 #Correlation matrix
 data_onlycat <- subset(data, select = c(c(V13,V14,V15,V17,V18,V19,V20,V21,V22,V23,V24,V25)))
-corrplot(cor(data_onlycat))
+ggcorrplot(cor(data_onlycat), method = "circle", lab = T, lab_size = 2)
 ```
-
-```{r data visualisation of Age using histogram}
+\pagebreak
+We take a look at the distribution of ages in our dataset
+```{r data visualisation of Age using histogram, fig.height=4,fig.align = "center", echo = F}
 hist(data$V6, xlab="Age", main="Histogram of Age")
 ```
-
-```{r data visualisation of Marital Status}
+We also look at the distribution of marital statuses in our dataset
+```{r data visualisation of Marital Status, fig.align = "center", fig.height=4,echo = F, warning = F}
 
 marital_status_plot <- ggplot(data_v, aes(x=Marital_Status))+
   geom_bar() + 
@@ -107,16 +112,16 @@ marital_status_plot <- ggplot(data_v, aes(x=Marital_Status))+
 
 marital_status_plot
 ```
-
-```{r data visualisation of Credit limit using boxplot}
+We check the boxplot of credit limit 
+```{r data visualisation of Credit limit using boxplot,fig.height=4, fig.align = "center", echo = F}
 credit_balance_plot <-ggplot(data_v, aes(x=V2), xlab="Credit Limit") + geom_boxplot() + coord_flip() + labs(title="Boxplot Of Credit Limit",x="Credit Limit")+
   theme_classic()
 
 credit_balance_plot
 
 ```
-
-```{r data visualisation Gender plot}
+We check for our distribution of gender, as well as the proportion of those who defaulted.
+```{r data visualisation Gender plot, fig.align = "center",fig.height=4, echo = F}
 data_v$default<- ifelse(data$V25 == 1, "default", "no default")
 
 # Bar Graph for gender
@@ -128,8 +133,8 @@ gender_plot<- ggplot(data_v, aes(GENDER))+
 gender_plot
 
 ```
-
-```{r data visualisation Education plot}
+Similarly, we check for the distribution of Education level, and the proportion of those who defaulted
+```{r data visualisation Education plot, fig.height=4, fig.align = "center",echo = F}
 
 
 # Bar graph for Education
@@ -151,7 +156,7 @@ education_plot
 
 ```
 
-```{r PartitioningData}
+```{r PartitioningData, echo = F}
 set.seed(1234)
 n = length(data$V1)
 index <- 1:nrow(data)
@@ -159,8 +164,11 @@ testindex <- sample(index, trunc(n)/4)
 test.data <- data[testindex,]
 train.data <- data[-testindex,]
 ```
-
-```{r feature selection for log reg}
+\pagebreak
+# Feature Selection and Model Selection
+## Logistic Regression Model
+We check the chi square value for categorical variables to see which ones to include.
+```{r feature selection for log reg, echo = F, warning = F}
 chistat <- matrix(0, 10, 2)
 col  <- ncol(data) - 1
 pred <- as.factor(data[,25])
@@ -168,7 +176,6 @@ for (i in 1:10) {
   x <- as.factor(data[,2+i])
   tbl <- table(x, pred)
   chi2res <- chisq.test(tbl)
-  print(chi2res)
   chistat[i, 1] <- chi2res$statistic
   chistat[i, 2] <- chi2res$p.value
 }
@@ -177,49 +184,69 @@ df <- data.frame(chistat[,1:2])
 names(df) <- c("chi2 stat", "p-value")
 df
 ```
-
-```{r logistic regression2}
+We see that all the chi-squared values are significant, which leads us to run the initial logistic model.
+```{r log inital model}
 log_model <- glm(V25 ~., data = train.data, family = "binomial")
 summary(log_model)
-predict <- predict(log_model, test.data, type = "response")
-predict <- ifelse(predict >0.2, 1, 0)
+```
+After running the model, we remove variables that are not significant. (V1, V10-12, V14-18, V21-23)
+We run the improved logistic model and calculate the metrics.
+```{r logistic regression, echo = F}
+
+#V1, V10-12, V14-18, V21-23
+better_log_model <- glm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20+V24, data = train.data, family = "binomial")
+summary(better_log_model)
+predict <- predict(better_log_model, test.data, type = "response")
+predict <- ifelse(predict >0.5, 1, 0)
 table <- table(test.data$V25, predict)
-table
-class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
-class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
-mean(predict == test.data$V25) #accuracy
-auc(test.data$V25, predict) #area under roc curve
-table[2,2]/(table[2,1] + table[2,2]) #specificity
+table #confusion matrix
+#class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+#class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+#(class_acc1 + class_acc2)/2 #average class accuracy
+#1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+acc <- mean(predict == test.data$V25) #accuracy
+roc <- auc(test.data$V25, predict) #area under roc curve
+specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
 recall <- table[1,1]/(table[1,1] + table[1,2])
 precision <- table[1,1]/(table[1,1] + table[2,1])
-F2 <- 2*recall*precision/(recall + precision) #F2 statistic
+F1 <- 2*recall*precision/(recall + precision) #F1 statistic
+log_metrics <- c(acc, specificity, roc, F1)
+metrics <- t(as.data.frame(log_metrics))
 ```
-
-```{r lm}
+\pagebreak
+## Linear regression model
+We run the inital linear regression model and remove the attributes that are not statistically significant.
+```{r lm feature selection, echo = F}
 model <- lm(V25~., data = train.data)
 summary(model)
 #V1, V10-12, V14-18, V21-24
-predict <- predict(model, test.data, type = "response")
-predict <- ifelse(predict >0.5, 1, 0)
-table(test.data$V25, predict)
-mean(predict == test.data$V25)
+```
+We find that variables V1, V10-V12, V14-18 and V21-24 are not significant. We run an improved model with only statistically significant variables.
+```{r lm, echo = F}
 better_model <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = train.data)
 summary(better_model)
 predict <- predict(better_model, test.data, type = "response")
 predict <- ifelse(predict >0.5, 1, 0)
-table(test.data$V25, predict)
-mean(predict == test.data$V25)
-predict <- predict(better_model, train.data, type = "response")
-predict <- ifelse(predict >0.5, 1, 0)
-table(train.data$V25, predict)
-mean(predict == train.data$V25)
+table <- table(test.data$V25, predict)
+table #confusion matrix
+#class_acc1 <- table[1,1]/(table[1,1] + table[1,2])
+#class_acc2 <- table[2,1]/(table[2,1] + table[2,2])
+#(class_acc1 + class_acc2)/2 #average class accuracy
+#1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+acc <- mean(predict == test.data$V25) #accuracy
+roc <- auc(test.data$V25, predict) #area under roc curve
+specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
+recall <- table[1,1]/(table[1,1] + table[1,2])
+precision <- table[1,1]/(table[1,1] + table[2,1])
+F1 <- 2*recall*precision/(recall + precision) #F1 statistic
+lm_metrics <- c(acc, specificity, roc, F1)
+metrics <- rbind(metrics, lm_metrics)
 ```
-
-```{r feature selection for svm}
-outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
-summary(outforward)
+\pagebreak
+## Support vector Machine
+First we do feature selection for our model.
+```{r feature selection for svm, fig.align = "center",echo = F}
+outforward <- regsubsets(V25 ~., data = train.data, method = "forward")
 plot(outforward, scale="r2")
 
 # inbackward <- regsubsets(data$V25 ~., data = data, method="backward")
@@ -228,40 +255,35 @@ plot(outforward, scale="r2")
 
 #V7, V13, V8, V6, V9, V19, V5, V2
 ```
+From the graph, we select only the top 3 variables being V7, V13 and then V8.  
+The reason why we choose only 3 is because that improves the R-squared score to 0.12, but adding the other variables does not improve the R-squared score much higher.
 
-```{r feature selection for svm}
-outforward <- regsubsets(data$V25 ~., data = data, method = "forward")
-summary(outforward)
-plot(outforward, scale="r2")
-```
-
-```{r SVM}
-svm.model.feature.selection <- svm(as.factor(V25) ~ V7 + V13 + V8,
+```{r SVM, echo = F}
+svm.model.feature.selection <- svm(V25 ~ V7 + V13 + V8,
                                    data = train.data, type="C-classification",
                                    kernel="linear", cost=0.2, 
                                    class.weights=c("0"=0.185, "1"=0.815))
-result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
-result_test_feature_selection <- predict(svm.model.feature.selection, test.data[,-25])
-table(pred=result_train_feature_selection, actual=train.data$V25)
+#result_train_feature_selection <- predict(svm.model.feature.selection, train.data[,-25])
+result_test_feature_selection <- predict(svm.model.feature.selection, test.data)
+#table(pred=result_train_feature_selection, actual=train.data$V25)
 table(pred=result_test_feature_selection, actual=test.data$V25)
-mean(result_train_feature_selection == train.data$V25)
+#mean(result_train_feature_selection == train.data$V25)
 mean(result_test_feature_selection == test.data$V25)
 
 tablesvm <- table(test.data$V25, result_test_feature_selection)
-tablesvm
-class_accsvm1 <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
-class_accsvm2 <- tablenn[2,1]/(tablenn[2,1] + tablenn[2,2])
-(class_accsvm1 + class_accsvm2)/2 #average class accuracy
-1/((1/class_accsvm1)+(1/class_accsvm2)) #harmonic mean
-mean(result_test_feature_selection == test.data$V25) #accuracy
-auc(test.data$V25, predtest) #area under roc curve
-tablesvm[2,2]/(tablesvm[2,1] + tablesvm[2,2]) #specificity
+tablesvm #confusion matrix
+#class_accsvm1 <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
+#class_accsvm2 <- tablesvm[2,1]/(tablesvm[2,1] + tablesvm[2,2])
+#(class_accsvm1 + class_accsvm2)/2 #average class accuracy
+#1/((1/class_accsvm1)+(1/class_accsvm2)) #harmonic mean
+accsvm <- mean(result_test_feature_selection == test.data$V25) #accuracy
+rocsvm <- auc(test.data$V25, as.numeric(result_test_feature_selection)) #area under roc curve
+specificitysvm <- tablesvm[2,2]/(tablesvm[2,1] + tablesvm[2,2]) #specificity
 recallsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
-recallsvm
 precisionsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[2,1])
-precisionsvm
 F1svm <- 2*recallsvm*precisionsvm/(recallsvm + precisionsvm) #F1 statistic
-F1svm
+svm_metrics <- c(accsvm, specificitysvm, rocsvm, F1svm)
+metrics <- rbind(metrics, svm_metrics)
 #V2,3,4,5,6,7,8,9,13,19,20,22
 # With cost=0.2, (0.2,0.8) (test)
 #     actual
@@ -269,178 +291,199 @@ F1svm
 #    0 5065  758
 #    1  835  842
 # 0.7876
-
 ```
+\pagebreak
+## Neural Network
 
-``` {r NeuralNetwork}
+We chose to use the same 3 variables selected by our Support Vector Machine.
+The reason why we did not include more variables is because our testing has shown that more variables led to the neural network being overfitted, and thus showing worse results than desired.
+
+``` {r NeuralNetwork, echo = F}
 #BEFORE BALANCING
 #TRAIN
-nn <- nnet(train.data$V25 ~ V7 + V13 + V8, train.data[,1:24],maxit=1000,size=8,entropy=TRUE, decay = 0.01)
-pred <- predict(nn, data = train.data[,1:24])
-train.binpred <- predict(nn, train.data[,1:24], type = c("class"))
-mean(train.data$V25 == train.binpred)
-auc(train.data$V25, pred)
+nn <- nnet(V25 ~ V7 + V13 + V8, train.data,maxit=1000,size=8,entropy=TRUE, decay = 0.01)
+#pred <- predict(nn, data = train.data)
+#train.binpred <- predict(nn, train.data[,1:24], type = c("class"))
+#mean(train.data$V25 == train.binpred)
+#auc(train.data$V25, pred)
 
 #TEST
-predtest <- predict(nn, newdata = test.data[,1:24])
-test.binpred <- predict(nn, test.data[,1:24], type = c("class"))
-mean(test.data$V25 == test.binpred)
-auc(test.data$V25, predtest)
+#predtest <- predict(nn, data = test.data)
+test.binpred <- predict(nn, test.data, type = c("class"))
+#mean(test.data$V25 == test.binpred)
+#auc(test.data$V25, predtest)
 
 tablenn <- table(test.data$V25, test.binpred)
-tablenn
-class_accnn1 <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
-class_accnn2 <- tablenn[2,1]/(tablenn[2,1] + tablenn[2,2])
-(class_accnn1 + class_accnn2)/2 #average class accuracy
-1/((1/class_accnn1)+(1/class_accnn2)) #harmonic mean
-mean(test.binpred == test.data$V25) #accuracy
-auc(test.data$V25, predtest) #area under roc curve
-tablenn[2,2]/(tablenn[2,1] + tablenn[2,2]) #specificity
+tablenn #confusion matrix
+#class_accnn1 <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
+#class_accnn2 <- tablenn[2,1]/(tablenn[2,1] + tablenn[2,2])
+#(class_accnn1 + class_accnn2)/2 #average class accuracy
+#1/((1/class_accnn1)+(1/class_accnn2)) #harmonic mean
+accnn <- mean(test.binpred == test.data$V25) #accuracy
+rocnn <- auc(test.data$V25, as.numeric(test.binpred)) #area under roc curve
+specificitynn <- tablenn[2,2]/(tablenn[2,1] + tablenn[2,2]) #specificity
 recallnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
-recallnn
 precisionnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[2,1])
-precisionnn
 F1nn <- 2*recallnn*precisionnn/(recallnn + precisionnn) #F1 statistic
-F1nn
+nn_metrics <- c(accnn, specificitynn, rocnn, F1nn)
+metrics <- rbind(metrics, nn_metrics)
 ```
+\pagebreak
+## Decision Tree
 
-``` {r decisiontree}
+We use the top 3 variables V7, V13, and V8.
+
+``` {r decisiontree, echo = F}
 #BEFORE BALANCING
 tree.model<- ctree(as.factor(V25) ~ V7 + V13 + V8, train.data)
 tree.predict_test <-predict(tree.model, test.data)
-
-tabletree <- table(test.data$V25, tree.predict_test)
-class_acctree1 <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
-class_acctree2 <- tabletree[2,1]/(tabletree[2,1] + tabletree[2,2])
-(class_acctree1 + class_acctree2)/2 #average class accuracy
-1/((1/class_acctree1)+(1/class_acctree2)) #harmonic mean
-mean(tree.predict_test == test.data$V25) #accuracy
-auc(test.data$V25, as.numeric(tree.predict_test)) #area under roc curve
-tabletree[2,2]/(tabletree[2,1] + tabletree[2,2]) #specificity
-recalltree <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
-recalltree
-precisiontree <- tabletree[1,1]/(tabletree[1,1] + tabletree[2,1])
-precisiontree
-F1tree <- 2*recalltree*precisiontree/(recalltree + precisiontree) #F1 statistic
-F1tree
-
 plot(tree.model)
 
-```
+tabletree <- table(test.data$V25, tree.predict_test)
+tabletree #confusion matrix
+#class_acctree1 <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
+#class_acctree2 <- tabletree[2,1]/(tabletree[2,1] + tabletree[2,2])
+#(class_acctree1 + class_acctree2)/2 #average class accuracy
+#1/((1/class_acctree1)+(1/class_acctree2)) #harmonic mean
+acctree <- mean(tree.predict_test == test.data$V25) #accuracy
+roctree <- auc(test.data$V25, as.numeric(tree.predict_test)) #area under roc curve
+specificitytree <- tabletree[2,2]/(tabletree[2,1] + tabletree[2,2]) #specificity
+recalltree <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
+precisiontree <- tabletree[1,1]/(tabletree[1,1] + tabletree[2,1])
+F1tree <- 2*recalltree*precisiontree/(recalltree + precisiontree) #F1 statistic
+tree_metrics <- c(acctree, specificitytree, roctree, F1tree)
+metrics <- rbind(metrics, tree_metrics)
 
-``` {r balancing}
-#OVERSAMPLING
-oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over",
-                                      N = 2*nrow(subset(train.data, train.data$V25 == 0)))$data
+row.names(metrics) <- c("Linear Regression", "Logistic Regression", "Support Vector Machine","Neural Network","Decision Tree")
 
-table(oversampled_train_data$V25)
-```
-
-```{r svm AFTER BALANCING}
-
-svm.model.feature.selection.balanced <- svm(as.factor(V25) ~ V7 + V13 + V8,
-                                   data = oversampled_train_data, type="C-classification",
-                                   kernel="linear", cost=0.2)
-result_train_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, oversampled_train_data[,-25])
-result_test_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, test.data[,-25])
-table(pred=result_train_feature_selection_balanced, actual=oversampled_train_data$V25)
-table(pred=result_test_feature_selection_balanced, actual=test.data$V25)
-mean(result_train_feature_selection_balanced == oversampled_train_data$V25)
-mean(result_test_feature_selection_balanced == test.data$V25)
+colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1 Statistic")
 
 
 ```
+\pagebreak
+# Model Evaluation
+We evaluate our models using 4 metrics, namely, Accuracy, Specificity, Area under ROC Curve, and F1 Statistic.
+```{r metrics, echo = F}
 
-``` {r logistic regression AFTER BALANCING}
-log_model_balanced <- glm(V25 ~., data = oversampled_train_data, family = "binomial")
-summary(log_model_balanced)
-predictlr_balanced <- predict(log_model_balanced, test.data, type = "response")
-predictlr_balanced <- ifelse(predictlr_balanced >0.5, 1, 0)
-tablelr <- table(test.data$V25, predictlr_balanced)
-tablelr
-class_acc1 <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
-class_acc2 <- tablelr[2,1]/(tablelr[2,1] + tablelr[2,2])
-(class_acc1 + class_acc2)/2 #average class accuracy
-1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
-mean(predictlr_balanced == test.data$V25) #accuracy
-auc(test.data$V25, predictlr_balanced) #area under roc curve
-tablelr[2,2]/(tablelr[2,1] + tablelr[2,2]) #specificity
-recalllr <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
-precisionlr <- tablelr[1,1]/(tablelr[1,1] + tablelr[2,1])
-F1lr <- 2*recalllr*precisionlr/(recalllr + precisionlr) #F1 statistic
+kable(metrics)
 
 ```
 
-```{r lm after balance}
-
-better_model_balanced <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = oversampled_train_data)
-summary(better_model_balanced)
-predict_balanced <- predict(better_model_balanced, test.data, type = "response")
-predict_balanced <- ifelse(predict_balanced >0.5, 1, 0)
-table(test.data$V25, predict_balanced)
-mean(predict_balanced == test.data$V25)
-
-predictlm <- predict(better_model_balanced, oversampled_train_data, type = "response")
-predictlm <- ifelse(predictlm >0.5, 1, 0)
-table(oversampled_train_data$V25, predictlm)
-mean(predictlm == oversampled_train_data$V25)
-```
-
-
-```{r decisiontree AFTER BALANCING}
-#AFTER BALANCING OVERSAMPLING
-#TRAIN
-tree.model_oversample<- ctree(as.factor(V25) ~ V7 + V13 + V8, oversampled_train_data)
-tree.binpredict_oversample <-predict(tree.model_oversample, test.data)
-
-tabletreebal <- table(test.data$V25, tree.binpredict_oversample)
-class_acctreebal1 <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[1,2])
-class_acctreebal2 <- tabletreebal[2,1]/(tabletreebal[2,1] + tabletreebal[2,2])
-(class_acctreebal1 + class_acctreebal2)/2 #average class accuracy
-1/((1/class_acctreebal1)+(1/class_acctreebal2)) #harmonic mean
-mean(tree.binpredict_oversample == test.data$V25) #accuracy
-auc(test.data$V25, as.numeric(tree.binpredict_oversample)) #area under roc curve
-tabletreebal[2,2]/(tabletreebal[2,1] + tabletreebal[2,2]) #specificity
-recalltreebal <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[1,2])
-recalltreebal
-precisiontreebal <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[2,1])
-precisiontreebal
-F1treebal <- 2*recalltreebal*precisiontreebal/(recalltreebal + precisiontreebal) #F1 statistic
-F1treebal
-
-plot(tree.model_oversample)
-
-```
-
-``` {r NeuralNetworkbalanced}
-#OVERSAMPLE
-#TRAIN
-nn_oversample <- nnet(oversampled_train_data$V25~., oversampled_train_data[,1:24],maxit=2000,size=20,entropy=TRUE, decay = 0.01)
-predover <- predict(nn_oversample, data = oversampled_train_data)
-train.binpredover <- predict(nn_oversample, oversampled_train_data, type = c("class"))
-mean(oversampled_train_data$V25 == train.binpredover)
-auc(oversampled_train_data$V25, predover)
-
-#TEST
-predovertest <- predict(nn_oversample, newdata = test.data)
-testover.binpred <- predict(nn_oversample, test.data, type = c("class"))
-mean(test.data$V25 == testover.binpred)
-auc(test.data$V25, predovertest)
-
-tablenn_balanced <- table(test.data$V25, testover.binpred)
-tablenn_balanced
-class_accnnbal1 <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[1,2])
-class_accnnbal2 <- tablenn_balanced[2,1]/(tablenn_balanced[2,1] + tablenn_balanced[2,2])
-(class_accnnbal1 + class_accnnbal2)/2 #average class accuracy
-1/((1/class_accnnbal1)+(1/class_accnnbal2)) #harmonic mean
-mean(testover.binpred == test.data$V25) #accuracy
-auc(test.data$V25, predovertest) #area under roc curve
-tablenn_balanced[2,2]/(tablenn_balanced[2,1] + tablenn_balanced[2,2]) #specificity
-recallnn_balanced <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[1,2])
-recallnn_balanced
-precisionnnbal <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[2,1])
-precisionnnbal
-F1nnbal <- 2*recallnn_balanced*precisionnnbal/(recallnn_balanced + precisionnnbal) #F1 statistic
-F1nnbal
-
+```{r balancing code, echo = F}
+# ``` {r balancing}
+# #OVERSAMPLING
+# oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over",
+#                                       N = 2*nrow(subset(train.data, train.data$V25 == 0)))$data
+# 
+# table(oversampled_train_data$V25)
+# ```
+# 
+# ```{r svm AFTER BALANCING}
+# 
+# svm.model.feature.selection.balanced <- svm(as.factor(V25) ~ V7 + V13 + V8,
+#                                    data = oversampled_train_data, type="C-classification",
+#                                    kernel="linear", cost=0.2)
+# result_train_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, oversampled_train_data[,-25])
+# result_test_feature_selection_balanced <- predict(svm.model.feature.selection.balanced, test.data[,-25])
+# table(pred=result_train_feature_selection_balanced, actual=oversampled_train_data$V25)
+# table(pred=result_test_feature_selection_balanced, actual=test.data$V25)
+# mean(result_train_feature_selection_balanced == oversampled_train_data$V25)
+# mean(result_test_feature_selection_balanced == test.data$V25)
+# 
+# 
+# ```
+# 
+# ``` {r logistic regression AFTER BALANCING}
+# log_model_balanced <- glm(V25 ~., data = oversampled_train_data, family = "binomial")
+# summary(log_model_balanced)
+# predictlr_balanced <- predict(log_model_balanced, test.data, type = "response")
+# predictlr_balanced <- ifelse(predictlr_balanced >0.5, 1, 0)
+# tablelr <- table(test.data$V25, predictlr_balanced)
+# tablelr
+# class_acc1 <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
+# class_acc2 <- tablelr[2,1]/(tablelr[2,1] + tablelr[2,2])
+# (class_acc1 + class_acc2)/2 #average class accuracy
+# 1/((1/class_acc1)+(1/class_acc2)) #harmonic mean
+# mean(predictlr_balanced == test.data$V25) #accuracy
+# auc(test.data$V25, predictlr_balanced) #area under roc curve
+# tablelr[2,2]/(tablelr[2,1] + tablelr[2,2]) #specificity
+# recalllr <- tablelr[1,1]/(tablelr[1,1] + tablelr[1,2])
+# precisionlr <- tablelr[1,1]/(tablelr[1,1] + tablelr[2,1])
+# F1lr <- 2*recalllr*precisionlr/(recalllr + precisionlr) #F1 statistic
+# 
+# ```
+# 
+# ```{r lm after balance}
+# 
+# better_model_balanced <- lm(V25~V2+V3+V4+V5+V6+V7+V8+V9+V13+V19+V20, data = oversampled_train_data)
+# summary(better_model_balanced)
+# predict_balanced <- predict(better_model_balanced, test.data, type = "response")
+# predict_balanced <- ifelse(predict_balanced >0.5, 1, 0)
+# table(test.data$V25, predict_balanced)
+# mean(predict_balanced == test.data$V25)
+# 
+# predictlm <- predict(better_model_balanced, oversampled_train_data, type = "response")
+# predictlm <- ifelse(predictlm >0.5, 1, 0)
+# table(oversampled_train_data$V25, predictlm)
+# mean(predictlm == oversampled_train_data$V25)
+# ```
+# 
+# 
+# ```{r decisiontree AFTER BALANCING}
+# #AFTER BALANCING OVERSAMPLING
+# #TRAIN
+# tree.model_oversample<- ctree(as.factor(V25) ~ V7 + V13 + V8, oversampled_train_data)
+# tree.binpredict_oversample <-predict(tree.model_oversample, test.data)
+# 
+# tabletreebal <- table(test.data$V25, tree.binpredict_oversample)
+# class_acctreebal1 <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[1,2])
+# class_acctreebal2 <- tabletreebal[2,1]/(tabletreebal[2,1] + tabletreebal[2,2])
+# (class_acctreebal1 + class_acctreebal2)/2 #average class accuracy
+# 1/((1/class_acctreebal1)+(1/class_acctreebal2)) #harmonic mean
+# mean(tree.binpredict_oversample == test.data$V25) #accuracy
+# auc(test.data$V25, as.numeric(tree.binpredict_oversample)) #area under roc curve
+# tabletreebal[2,2]/(tabletreebal[2,1] + tabletreebal[2,2]) #specificity
+# recalltreebal <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[1,2])
+# recalltreebal
+# precisiontreebal <- tabletreebal[1,1]/(tabletreebal[1,1] + tabletreebal[2,1])
+# precisiontreebal
+# F1treebal <- 2*recalltreebal*precisiontreebal/(recalltreebal + precisiontreebal) #F1 statistic
+# F1treebal
+# 
+# plot(tree.model_oversample)
+# 
+# ```
+# 
+# ``` {r NeuralNetworkbalanced}
+# #OVERSAMPLE
+# #TRAIN
+# nn_oversample <- nnet(oversampled_train_data$V25~., oversampled_train_data[,1:24],maxit=2000,size=20,entropy=TRUE, decay = 0.01)
+# predover <- predict(nn_oversample, data = oversampled_train_data)
+# train.binpredover <- predict(nn_oversample, oversampled_train_data, type = c("class"))
+# mean(oversampled_train_data$V25 == train.binpredover)
+# auc(oversampled_train_data$V25, predover)
+# 
+# #TEST
+# predovertest <- predict(nn_oversample, newdata = test.data)
+# testover.binpred <- predict(nn_oversample, test.data, type = c("class"))
+# mean(test.data$V25 == testover.binpred)
+# auc(test.data$V25, predovertest)
+# 
+# tablenn_balanced <- table(test.data$V25, testover.binpred)
+# tablenn_balanced
+# class_accnnbal1 <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[1,2])
+# class_accnnbal2 <- tablenn_balanced[2,1]/(tablenn_balanced[2,1] + tablenn_balanced[2,2])
+# (class_accnnbal1 + class_accnnbal2)/2 #average class accuracy
+# 1/((1/class_accnnbal1)+(1/class_accnnbal2)) #harmonic mean
+# mean(testover.binpred == test.data$V25) #accuracy
+# auc(test.data$V25, predovertest) #area under roc curve
+# tablenn_balanced[2,2]/(tablenn_balanced[2,1] + tablenn_balanced[2,2]) #specificity
+# recallnn_balanced <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[1,2])
+# recallnn_balanced
+# precisionnnbal <- tablenn_balanced[1,1]/(tablenn_balanced[1,1] + tablenn_balanced[2,1])
+# precisionnnbal
+# F1nnbal <- 2*recallnn_balanced*precisionnnbal/(recallnn_balanced + precisionnnbal) #F1 statistic
+# F1nnbal
+# 
+# ```
 ```
