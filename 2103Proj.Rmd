@@ -71,22 +71,26 @@ The dataset used for this project contains information of 30,000 credit card hol
 </p>
 # Exploratory Data Analysis
 ## Structure of the Data
-By exploring the structure of the data, it can be discerned that UNFINISHED
-```{r data structure}
+<p align="justify">
+The first crucial step is to find out more about the dataset. By exploring the structure of the data, it can be discerned that all variables read in were of type integer. However, it is clear that variables V3 (Gender), V4 (Education Level), V5 (Marital Status) and V7 to V12 (Repayment Status) should not be treated as integers. Instead, the aforementioned variables would be converted to a factor to better represent the data.
+</p>
+```{r data structure, echo=F}
 str(data)
 ```
 ## Missing Values
 <p align="justify">
-In this section, a check was performed to identify any missing or N.A. values. Thereafter, a summary of the variables are shown with the exception of V1 which is the customer identification.
+In this section, a check was performed to identify any missing or N.A. values. From the check, it was identified that there were no missing or N.A. values in the data. Thereafter, a summary of the variables is shown with the exception of V1 which is the customer identification.
 </p>
-```{r data preprocessing checking for NA Values}
-
+```{r data preprocessing checking for NA Values, echo=F}
 #Checking for NA values
 any(is.na(data))
 
-summary(data[2:24])
+summary(data[2:25])
 ```
 ## Distribution of the Data
+<p align="justify">
+Subsequently, the distribution of the data was explored. 
+</p>
 We check our categorical variables Gender, Education and Marital Status
 
 We observe that Education has certain unknown observations that we can clump under the category "others".
@@ -228,14 +232,14 @@ train.data <- data_MOD[-testindex,]
 </p>
 
 ```{r FeatureSelectionImage, echo=F, fig.align='center', out.width='80%'}
-knitr::include_graphics("Variance Importance Plot.png")
+knitr::include_graphics("Variable Importance Plot.png")
 ```
 
 
 ```{r FeatureSelection}
-# control <- trainControl(method="cv", number=10)
-# model <- train(train.data[,c(2:12, 26:27)], as.factor(train.data$V25), method="rf", trControl=control)
-# plot(varImp(model, scale=F), main="Variance Importance Plot")
+control <- trainControl(method="cv", number=10)
+model <- train(train.data[,c(2:12, 26:27)], as.factor(train.data$V25), method="rf", trControl=control)
+plot(varImp(model, scale=F), main="Variable Importance Plot")
 ```
 
 
@@ -344,8 +348,8 @@ The reason why we choose only 3 is because that improves the R-squared score to 
 ```{r SVM, echo = F}
 svm.model.feature.selection <- svm(V25 ~ V7 + mean_col_19_24 + mean_col_13_18 + V6 + V2 + V8,
                                    data = train.data, type="C-classification",
-                                   kernel="linear", cost=0.2, 
-                                   class.weights=c("0"=0.2, "1"=0.8))
+                                   kernel="linear", cost=10, 
+                                   class.weights=c("0"=0.17, "1"=0.83))
 
 
 # svm.model.feature.selection <- svm(V25 ~ V7 + V13 + V8 ,
