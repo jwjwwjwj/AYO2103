@@ -187,19 +187,21 @@ plot(varImp(model, scale=F), main="Variable Importance Plot")
 
 ```{r logistic regression, eval = FALSE, include = TRUE}
 #Logistic Regression
+set.seed(1234)
 log_model <- glm(as.factor(V25)~ V7 + mean_col_19_24 + mean_col_13_18 + V6 + V2 + V8, 
                  data = train.data, family = "binomial")
 predict <- predict(log_model, test.data, type = "response")
-predict <- ifelse(predict > 0.21, 1, 0)
+predict <- ifelse(predict > 0.5, 1, 0)
 table <- table(pred=predict, actual=test.data$V25)
 table #confusion matrix
 acc <- mean(predict == test.data$V25) #accuracy
 roc <- auc(test.data$V25, predict) #area under roc curve
-specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
-recall <- table[1,1]/(table[1,1] + table[1,2])
-precision <- table[1,1]/(table[1,1] + table[2,1])
-F1 <- 2*recall*precision/(recall + precision) #F1 statistic
-log_metrics <- c(acc, specificity, roc, F1)
+sensitivity <- table[2,2]/(table[1,2] + table[2,2]) #sensitivity
+TP <- table[2,2]
+FP <- table[1,2]
+FN <- table[2,1]
+F1 <- TP/(TP + 0.5*(FP + FN)) #F1 statistic
+log_metrics <- c(acc, sensitivity, roc, F1)
 metrics <- t(as.data.frame(log_metrics))
 ```
 
@@ -207,7 +209,7 @@ metrics <- t(as.data.frame(log_metrics))
 #Logistic Regression results
 log_metric <- log_metrics
 log_df <- data.frame(t(log_metric))
-colnames(log_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+colnames(log_df) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
 kable(round(log_df, 2), align='c', padding=30)
 ```
 
@@ -220,16 +222,20 @@ svm.model.feature.selection <- svm(V25 ~ V7 + mean_col_19_24 + mean_col_13_18 + 
 
 
 result_test_feature_selection <- predict(svm.model.feature.selection, test.data)
+
 tablesvm <- table(pred=result_test_feature_selection, actual=test.data$V25) #confusion matrix
 tablesvm
 
 accsvm <- mean(result_test_feature_selection == test.data$V25) #accuracy
 rocsvm <- auc(test.data$V25, as.numeric(result_test_feature_selection)) #area under roc curve
-specificitysvm <- tablesvm[2,2]/(tablesvm[2,1] + tablesvm[2,2]) #specificity
+sensitivitysvm <- tablesvm[2,2]/(tablesvm[1,2] + tablesvm[2,2]) #sensitivity
 recallsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
 precisionsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[2,1])
-F1svm <- 2*recallsvm*precisionsvm/(recallsvm + precisionsvm) #F1 statistic
-svm_metrics <- c(accsvm, specificitysvm, rocsvm, F1svm)
+TPsvm <- tablesvm[2,2]
+FPsvm <- tablesvm[1,2]
+FNsvm <- tablesvm[2,1]
+F1svm <- TPsvm/(TPsvm + 0.5*(FPsvm + FNsvm)) #F1 statistic
+svm_metrics <- c(accsvm, sensitivitysvm, rocsvm, F1svm)
 metrics <- rbind(metrics, svm_metrics)
 
 ```
@@ -238,7 +244,7 @@ metrics <- rbind(metrics, svm_metrics)
 #SVM Results
 svm_metric <- svm_metrics
 svm_df <- data.frame(t(svm_metric))
-colnames(svm_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+colnames(svm_df) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
 kable(round(svm_df, 2), align='c', padding=30)
 ```
 
@@ -248,17 +254,21 @@ set.seed(1234)
 nn <- nnet(train.data$V25 ~ V7 + V2 + V6 + `mean_col_13_18` + `mean_col_19_24` + V8, train.data,
             maxit=1000,size=15,entropy=TRUE, decay = 0.01)
 
-#TEST
 test.binpred <- predict(nn, newdata=test.data, type = c("class"))
+
 tablenn <- table(pred=test.binpred, actual=test.data$V25)
 tablenn 
+
 accnn <- mean(test.binpred == test.data$V25) #accuracy
 rocnn <- auc(test.data$V25, as.numeric(test.binpred)) #area under roc curve
-specificitynn <- tablenn[2,2]/(tablenn[2,1] + tablenn[2,2]) #specificity
+sensitivitynn <- tablenn[2,2]/(tablenn[1,2] + tablenn[2,2]) #sensitivity
 recallnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
 precisionnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[2,1])
-F1nn <- 2*recallnn*precisionnn/(recallnn + precisionnn) #F1 statistic
-nn_metrics <- c(accnn, specificitynn, rocnn, F1nn)
+TPnn <- tablenn[2,2]
+FPnn <- tablenn[1,2]
+FNnn <- tablenn[2,1]
+F1nn <- TPnn/(TPnn + 0.5*(FPnn + FNnn)) #F1 statistic
+nn_metrics <- c(accnn, sensitivitynn, rocnn, F1nn)
 metrics <- rbind(metrics, nn_metrics)
 ```
 
@@ -267,37 +277,41 @@ metrics <- rbind(metrics, nn_metrics)
 tablenn
 nn_metric <- nn_metrics
 nn_df <- data.frame(t(nn_metric))
-colnames(nn_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+colnames(nn_df) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
 kable(round(nn_df, 2), align='c', padding=30)
 ```
 
 ``` {r decisiontree, echo = F, fig.align='center', out.width='85%', eval = FALSE, include = TRUE}
 #Decision Tree
-tree.model <- ctree(as.factor(V25) ~ V7 + V2 + V6 + `mean_col_13_18` + `mean_col_19_24` + V8, train.data)
-tree.predict_test <- predict(tree.model, test.data)
+tree.model<- ctree(as.factor(V25) ~ V7 + V2 + V6 + `mean_col_13_18` + `mean_col_19_24` + V8, train.data)
+tree.predict_test <-predict(tree.model, test.data)
 plot(tree.model)
 
 tabletree <- table(pred = tree.predict_test, actual = test.data$V25)
 tabletree #confusion matrix
+
 acctree <- mean(tree.predict_test == test.data$V25) #accuracy
 roctree <- auc(test.data$V25, as.numeric(tree.predict_test)) #area under roc curve
-specificitytree <- tabletree[2,2]/(tabletree[2,1] + tabletree[2,2]) #specificity
+sensitivitytree <- tabletree[2,2]/(tabletree[1,2] + tabletree[2,2]) #sensitivity
 recalltree <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
 precisiontree <- tabletree[1,1]/(tabletree[1,1] + tabletree[2,1])
-F1tree <- 2*recalltree*precisiontree/(recalltree + precisiontree) #F1 statistic
-tree_metrics <- c(acctree, specificitytree, roctree, F1tree)
+TPtree <- tabletree[2,2]
+FPtree <- tabletree[1,2]
+FNtree <- tabletree[2,1]
+F1tree <- TPtree/(TPtree + 0.5*(FPtree + FNtree)) #F1 statistic
+tree_metrics <- c(acctree, sensitivitytree, roctree, F1tree)
 metrics <- rbind(metrics, tree_metrics)
 
 row.names(metrics) <- c("Logistic Regression", "Support Vector Machine","Neural Network","Decision Tree")
 
-colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+colnames(metrics) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
 ```
 
 ```{r treeResults, eval = FALSE, include = TRUE}
 #Decision Tree results
 tree_metric <- tree_metrics
 tree_df <- data.frame(t(tree_metric))
-colnames(tree_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+colnames(tree_df) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
 kable(round(tree_df, 2), align='c', padding=30)
 ```
 
@@ -322,4 +336,30 @@ undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "und
                         N =  2*nrow(subset(train.data, train.data$V25 == 1)))$data
 
 table(undersampled_train_data$V25)
+```
+
+```{r logistic regression improved, eval = FALSE, include = TRUE}
+set.seed(1234)
+log_modelimproved <- glm(as.factor(V25)~ V7 + mean_col_19_24 + mean_col_13_18 + V6 + V2 + V8, 
+                 data = train.data, family = "binomial")
+predictimproved <- predict(log_modelimproved, test.data, type = "response")
+predictimproved <- ifelse(predictimproved > 0.21, 1, 0)
+tableimproved <- table(pred=predictimproved, actual=test.data$V25)
+tableimproved #confusion matrix
+accimproved <- mean(predictimproved == test.data$V25) #accuracy
+rocimproved <- auc(test.data$V25, predictimproved) #area under roc curve
+sensitivityimproved <- tableimproved[2,2]/(tableimproved[1,2] + tableimproved[2,2]) #sensitivity
+TPimproved <- tableimproved[2,2]
+FPimproved <- tableimproved[1,2]
+FNimproved <- tableimproved[2,1]
+F1improved <- TPimproved/(TPimproved + 0.5*(FPimproved + FNimproved)) #F1 statistic
+log_metricsimproved <- c(accimproved, sensitivityimproved, rocimproved, F1improved)
+
+```
+
+```{r logisticResultsimproved, eval = FALSE, include = TRUE}
+log_metricimproved <- log_metricsimproved
+log_dfimproved <- data.frame(t(log_metricimproved))
+colnames(log_dfimproved) <- c("Accuracy", "Sensitivity", "Area under ROC Curve", "F1-Score")
+kable(round(log_dfimproved, 2), align='c', padding=30)
 ```
