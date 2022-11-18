@@ -485,7 +485,7 @@ kable(round(metrics, 2), align='c', padding=30)
 
 ```
 <p align="justify">
-Based on the results of the 4 different models using the evaluation metrics selected, it is observed that the SVM model produced the best results as compared to the other models. The SVM is able to best predict the defaulters with its sensitivity being the highest and one of the better classifiers with its F1-score and area under ROC curve being comparable to the other models. Therefore, it is deduced that SVM is the best in terms of overall model performance.
+Based on the results of the 4 different models using the evaluation metrics selected, it is observed that the SVM model produced the best results as compared to the other models. The SVM is able to best predict the defaulters with its sensitivity being the highest and one of the better classifiers with its F1-score and area under ROC curve being comparable to the other models. Furthermore, the SVM had the lowest false positive of 813 (model predicted non-default when customer had defaulted). Therefore, it is deduced that SVM is the best in terms of overall model performance.
 </p>
 
 \pagebreak
