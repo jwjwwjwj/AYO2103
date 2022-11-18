@@ -513,6 +513,8 @@ undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "und
 
 table(undersampled_train_data$V25)
 ```
+
+## Changing the Threshold Value of the Logistic Regression Model
 <p align="justify">
 Another improvement would be to change the threshold for the logistic regression model. In the model run, a threshold value of 0.5 was stipulated, but a better threshold such as 0.21 could be utilized instead.
 
