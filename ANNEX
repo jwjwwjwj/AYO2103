@@ -1,9 +1,8 @@
 ---
 title: "Annex"
-fontsize: 12pt
+fontsize: 12
 output:
   pdf_document: default
-  html_document: default
 ---
 
 ```{r setup, eval = FALSE, include = TRUE}
