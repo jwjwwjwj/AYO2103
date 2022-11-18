@@ -1,0 +1,325 @@
+---
+title: "Annex"
+fontsize: 12pt
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, eval = FALSE, include = TRUE}
+#Setup
+library(tinytex)
+library(knitr)
+library(dplyr)
+library(readxl)
+library(ggplot2)
+library(corrplot)
+library(Hmisc)
+library(caret)
+library(leaps)
+library(e1071)
+library(ggcorrplot)
+library(ranger)
+library(caret)
+library(data.table)
+library(nnet)
+library(NeuralNetTools)
+library(smotefamily)
+library(ROSE)
+library(rpart)
+library(ROCR)
+library(pROC)
+library(caTools)
+library(partykit)
+library(grid)
+library(mvtnorm)
+library(libcoin)
+library(mlbench)
+library(randomForest)
+```
+
+```{r read data, eval = FALSE, include = TRUE}
+#Data Reading
+data <- read.csv("card.csv", sep = ",", skip = 2, header = FALSE)
+data_v <-data
+header <- scan("card.csv",sep=",",nlines=2,what=character())
+```
+
+```{r data structure, eval = FALSE, include = TRUE}
+#Data Structure
+str(data)
+```
+
+```{r data preprocessing checking for NA Values, eval = FALSE, include = TRUE}
+#Checking for NA values
+summary(data[2:25])
+```
+
+```{r Exploratory Data Analysis for V25, eval = FALSE, include = TRUE}
+#Exploratory data analysis
+table(data$V25)
+```
+
+```{r Exploratory data analysis for Gender, Education and Marital status, eval = FALSE, include = TRUE}
+#Gender Table
+table(data$V3)
+
+#Education Table
+table(data$V4)
+
+#Marital Status 
+table(data$V5)
+```
+
+``` {r correlation matrix, fig.align = "center", eval = FALSE, include = TRUE}
+#Correlation matrix
+data_onlycat <- subset(data, select = c(c(V2,V13,V14,V15,V16,V17,V18,V19,V20,V21,V22,V23,V24)))
+ggcorrplot(cor(data_onlycat), method = "circle", lab = T, lab_size = 2)
+```
+
+```{r data pre-processing, eval = FALSE, include = TRUE}
+#Making a Gender column
+data_v$Gender = ifelse(data$V3 == 1, "Male", "Female")
+
+# Firstly modify Education values, change values that are not 1,2,3 to 4.
+data$V4 = ifelse(data$V4%in%c(0,4,5,6), 4, data$V4)
+
+# Making an Education column (1 = graduate school; 
+#       2 = university; 3 = high school; 4 = others).
+data_v$Education <- factor(data$V4,
+          labels = c("Graduate School", "University", "High School","Others"))
+
+#Replacing Marriage 0 to 3 (1 = married; 2 = single; 3 = others)
+data$V5 = ifelse(data$V5 == 0, 3,data$V5)
+
+data_v$`Marital Status` <- factor(data$V5,
+                            labels = c("Married", "Single", "Others"))
+
+#Changing data type to factors
+data$V5 <- as.factor(data$V5)
+data$V4 <- as.factor(data$V4)
+data$V3 <- as.factor(data$V3)
+
+data$V7 <- as.factor(data$V7)
+data$V8 <- as.factor(data$V8)
+data$V9 <- as.factor(data$V9)
+data$V10 <- as.factor(data$V10)
+data$V11 <- as.factor(data$V11)
+data$V12 <- as.factor(data$V12)
+
+#Feature engineering: compress 6 columns to 1 by finding the average of each observation
+data_MOD <- mutate(data, mean_col_13_18 = rowMeans(select(data,V13:V18), na.rm = TRUE))
+data_MOD <- mutate(data_MOD, mean_col_19_24 = rowMeans(select(data,V19:V24),
+                                                       na.rm = TRUE))
+```
+
+```{r data visualisation of Age using histogram, fig.height=4,fig.align = "center", eval = FALSE, include = TRUE}
+#Data visualization of age
+hist(data$V6, xlab="Age", main="Histogram of Age", las=1, col="skyblue", cex.axis=0.8)
+```
+
+```{r data visualisation of Marital Status, fig.align = "center", fig.height=4,echo = F, warning = F, eval = FALSE, include = TRUE}
+#Data visualization of marital status
+marital_status_plot <- ggplot(data_v, aes(x=`Marital Status`))+
+  geom_bar() + 
+  labs(title="Marital Status") +
+  stat_count(aes(label = ..count..), geom = "label")
+
+marital_status_plot
+```
+
+```{r data visualisation of Credit limit using boxplot,fig.height=4, fig.align = "center", eval = FALSE, include = TRUE}
+#Data visualization of credit limit
+boxplot(data$V2/1000, main="Boxplot for Credit Limit of all Customers", ylab="Credit Limit (NT dollar) (in thousands)",
+        las=1, cex.axis=0.8)
+
+```
+
+```{r data visualisation Gender plot, fig.align = "center",fig.height=4, eval = FALSE, include = TRUE}
+#Data visualization of gender
+data_v$Default<- ifelse(data$V25 == 1, "Default", "Did not default")
+
+# Bar Graph for gender
+gender_plot<- ggplot(data_v, aes(Gender))+
+  geom_bar(aes(fill=Default), width = 0.5) + 
+  labs(title="Gender") +
+  stat_count(aes(label = ..count..), geom = "label")
+
+gender_plot
+```
+
+```{r data visualisation Education plot, fig.height=4, fig.align = "center",eval = FALSE, include = TRUE}
+# Bar graph for Education
+education_plot <- data_v %>%
+  count(Education, Default) %>%
+    group_by(Education) %>%
+    mutate(n = n/sum(n) * 100) %>%
+    ggplot() + 
+    aes(factor(Education,
+               levels = c("High School", "University", "Graduate School","Others")), n,
+        fill = Default, label = paste0(round(n, 2), "%")) + 
+    geom_col() +
+    geom_text(position=position_stack(0.5))+
+    labs(title="Education")+
+    xlab("Education")+
+    ylab("Proportion (%)")
+
+education_plot
+```
+
+```{r PartitioningData, eval = FALSE, include = TRUE}
+#Split data into train-test
+set.seed(1234)
+n = length(data$V1)
+index <- 1:nrow(data)
+testindex <- sample(index, trunc(n)/4)
+test.data <- data_MOD[testindex,]
+train.data <- data_MOD[-testindex,]
+```
+
+```{r FeatureSelection, eval = FALSE, include = TRUE}
+#Feature Selection
+control <- trainControl(method="cv", number=10)
+model <- train(train.data[,c(2:12, 26:27)], as.factor(train.data$V25), 
+                method="rf", trControl=control)
+plot(varImp(model, scale=F), main="Variable Importance Plot")
+```
+
+```{r logistic regression, eval = FALSE, include = TRUE}
+#Logistic Regression
+log_model <- glm(as.factor(V25)~ V7 + mean_col_19_24 + mean_col_13_18 + V6 + V2 + V8, 
+                 data = train.data, family = "binomial")
+predict <- predict(log_model, test.data, type = "response")
+predict <- ifelse(predict > 0.21, 1, 0)
+table <- table(pred=predict, actual=test.data$V25)
+table #confusion matrix
+acc <- mean(predict == test.data$V25) #accuracy
+roc <- auc(test.data$V25, predict) #area under roc curve
+specificity <- table[2,2]/(table[2,1] + table[2,2]) #specificity
+recall <- table[1,1]/(table[1,1] + table[1,2])
+precision <- table[1,1]/(table[1,1] + table[2,1])
+F1 <- 2*recall*precision/(recall + precision) #F1 statistic
+log_metrics <- c(acc, specificity, roc, F1)
+metrics <- t(as.data.frame(log_metrics))
+```
+
+```{r logisticResults, eval = FALSE, include = TRUE}
+#Logistic Regression results
+log_metric <- log_metrics
+log_df <- data.frame(t(log_metric))
+colnames(log_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+kable(round(log_df, 2), align='c', padding=30)
+```
+
+```{r SVM, eval = FALSE, include = TRUE}
+#SVM
+svm.model.feature.selection <- svm(V25 ~ V7 + mean_col_19_24 + mean_col_13_18 + V6 + V2 + V8,
+                                    data = train.data, type="C-classification",
+                                    kernel="linear", cost=10, 
+                                    class.weights=c("0"=0.17, "1"=0.83))
+
+
+result_test_feature_selection <- predict(svm.model.feature.selection, test.data)
+tablesvm <- table(pred=result_test_feature_selection, actual=test.data$V25) #confusion matrix
+tablesvm
+
+accsvm <- mean(result_test_feature_selection == test.data$V25) #accuracy
+rocsvm <- auc(test.data$V25, as.numeric(result_test_feature_selection)) #area under roc curve
+specificitysvm <- tablesvm[2,2]/(tablesvm[2,1] + tablesvm[2,2]) #specificity
+recallsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[1,2])
+precisionsvm <- tablesvm[1,1]/(tablesvm[1,1] + tablesvm[2,1])
+F1svm <- 2*recallsvm*precisionsvm/(recallsvm + precisionsvm) #F1 statistic
+svm_metrics <- c(accsvm, specificitysvm, rocsvm, F1svm)
+metrics <- rbind(metrics, svm_metrics)
+
+```
+
+```{r svmResults, eval = FALSE, include = TRUE}
+#SVM Results
+svm_metric <- svm_metrics
+svm_df <- data.frame(t(svm_metric))
+colnames(svm_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+kable(round(svm_df, 2), align='c', padding=30)
+```
+
+``` {r NeuralNetwork, eval = FALSE, include = TRUE}
+#Neural Network
+set.seed(1234)
+nn <- nnet(train.data$V25 ~ V7 + V2 + V6 + `mean_col_13_18` + `mean_col_19_24` + V8, train.data,
+            maxit=1000,size=15,entropy=TRUE, decay = 0.01)
+
+#TEST
+test.binpred <- predict(nn, newdata=test.data, type = c("class"))
+tablenn <- table(pred=test.binpred, actual=test.data$V25)
+tablenn 
+accnn <- mean(test.binpred == test.data$V25) #accuracy
+rocnn <- auc(test.data$V25, as.numeric(test.binpred)) #area under roc curve
+specificitynn <- tablenn[2,2]/(tablenn[2,1] + tablenn[2,2]) #specificity
+recallnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[1,2])
+precisionnn <- tablenn[1,1]/(tablenn[1,1] + tablenn[2,1])
+F1nn <- 2*recallnn*precisionnn/(recallnn + precisionnn) #F1 statistic
+nn_metrics <- c(accnn, specificitynn, rocnn, F1nn)
+metrics <- rbind(metrics, nn_metrics)
+```
+
+```{r nnResults, eval = FALSE, include = TRUE}
+#Neural Network Results
+tablenn
+nn_metric <- nn_metrics
+nn_df <- data.frame(t(nn_metric))
+colnames(nn_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+kable(round(nn_df, 2), align='c', padding=30)
+```
+
+``` {r decisiontree, echo = F, fig.align='center', out.width='85%', eval = FALSE, include = TRUE}
+#Decision Tree
+tree.model <- ctree(as.factor(V25) ~ V7 + V2 + V6 + `mean_col_13_18` + `mean_col_19_24` + V8, train.data)
+tree.predict_test <- predict(tree.model, test.data)
+plot(tree.model)
+
+tabletree <- table(pred = tree.predict_test, actual = test.data$V25)
+tabletree #confusion matrix
+acctree <- mean(tree.predict_test == test.data$V25) #accuracy
+roctree <- auc(test.data$V25, as.numeric(tree.predict_test)) #area under roc curve
+specificitytree <- tabletree[2,2]/(tabletree[2,1] + tabletree[2,2]) #specificity
+recalltree <- tabletree[1,1]/(tabletree[1,1] + tabletree[1,2])
+precisiontree <- tabletree[1,1]/(tabletree[1,1] + tabletree[2,1])
+F1tree <- 2*recalltree*precisiontree/(recalltree + precisiontree) #F1 statistic
+tree_metrics <- c(acctree, specificitytree, roctree, F1tree)
+metrics <- rbind(metrics, tree_metrics)
+
+row.names(metrics) <- c("Logistic Regression", "Support Vector Machine","Neural Network","Decision Tree")
+
+colnames(metrics) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+```
+
+```{r treeResults, eval = FALSE, include = TRUE}
+#Decision Tree results
+tree_metric <- tree_metrics
+tree_df <- data.frame(t(tree_metric))
+colnames(tree_df) <- c("Accuracy", "Specificity", "Area under ROC Curve", "F1-Score")
+kable(round(tree_df, 2), align='c', padding=30)
+```
+
+```{r metrics, eval = FALSE, include = TRUE}
+#Metrics
+kable(round(metrics, 2), align='c', padding=30)
+
+```
+
+```{r OVERSAMPLING, eval = FALSE, include = TRUE}
+# #OVERSAMPLING
+oversampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "over",
+                        N =  2*nrow(subset(train.data, train.data$V25 == 0)))$data
+
+table(oversampled_train_data$V25)
+
+```
+
+``` {r UNDERSAMPLING, eval = FALSE, include = TRUE}
+# UNDERSAMPLING
+undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "under",
+                        N =  2*nrow(subset(train.data, train.data$V25 == 1)))$data
+
+table(undersampled_train_data$V25)
+```
