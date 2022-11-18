@@ -477,7 +477,7 @@ kable(round(tree_df, 2), align='c', padding=30)
 \pagebreak
 # Model Evaluation
 <p align="justify">
-The metrics employed to evaluate the models are accuracy, sensitivity, area under ROC curve and F1-score. Due to the data set being unbalanced, accuracy alone is an inadequate measure of performance to compare across the models. Thus, Area under ROC Curve and F1-Score are considered instead, which are superior for imbalanced data. In addition, sensitivity is also used to check for overfitting of the models.
+The metrics employed to evaluate the models are accuracy, sensitivity, area under ROC curve and F1-score. Due to the data set being unbalanced, accuracy alone is an inadequate measure of performance to compare across the models. Thus, area under ROC Curve and F1-Score are considered instead, which are superior for imbalanced data. In addition, sensitivity is also used to check for overfitting of the models.
 </p>
 ```{r metrics, echo = F}
 
@@ -485,7 +485,7 @@ kable(round(metrics, 2), align='c', padding=30)
 
 ```
 <p align="justify">
-Based on the results of the 4 different models using the evaluation metrics selected, it is observed that the SVM model produced the best results as compared to the other models. The SVM is able to best predict the defaulters with its sensitivity being the highest and one of the better classifiers with its F1-score and area under ROC curve being comparable to the other models. Therefore, we deduce that SVM is the best in terms of prediction accuracy.
+Based on the results of the 4 different models using the evaluation metrics selected, it is observed that the SVM model produced the best results as compared to the other models. The SVM is able to best predict the defaulters with its sensitivity being the highest and one of the better classifiers with its F1-score and area under ROC curve being comparable to the other models. Therefore, it is deduced that SVM is the best in terms of overall model performance.
 </p>
 
 \pagebreak
@@ -514,7 +514,7 @@ undersampled_train_data <- ovun.sample(V25 ~ ., data = train.data, method = "und
 table(undersampled_train_data$V25)
 ```
 <p align="justify">
-Another improvement would be to change the threshold for logistic regression. In the model run, we used a threshold value of 0.5, but a better threshold such as 0.21 could be utilized instead.
+Another improvement would be to change the threshold for the logistic regression model. In the model run, a threshold value of 0.5 was stipulated, but a better threshold such as 0.21 could be utilized instead.
 
 </p>
 ```{r logistic regression improved, echo = F}
@@ -536,7 +536,7 @@ log_metricsimproved <- c(accimproved, sensitivityimproved, rocimproved, F1improv
 
 ```
 <p align="justify">
-As observed below, changing the threshold improves the prediction accuracy of the model of the logistic regression. 
+As observed below, changing the threshold from 0.5 to 0.21 improved the prediction accuracy of the logistic regression model. 
 </p>
 ```{r logisticResultsimproved, echo=F}
 log_metricimproved <- log_metricsimproved
