@@ -6,7 +6,7 @@ header-includes:
   - \newcommand{\elandscape}{\end{landscape}}
   - \usepackage{setspace}
   - \singlespacing
-fontsize: 12pt
+fontsize: 12
 output: pdf_document
 date: "18 November 2022"
 ---
